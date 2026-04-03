@@ -5,7 +5,7 @@
                              https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>name.lechners.knx</groupId>
+    <groupId>io.github.alramlechner</groupId>
     <artifactId>knxproj-maven-plugin</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>maven-plugin</packaging>
@@ -60,7 +60,7 @@
         Minimal configuration example in a consuming project:
 
             &lt;plugin&gt;
-              &lt;groupId&gt;name.lechners.knx&lt;/groupId&gt;
+              &lt;groupId&gt;io.github.alramlechner&lt;/groupId&gt;
               &lt;artifactId&gt;knxproj-maven-plugin&lt;/artifactId&gt;
               &lt;version&gt;1.0.0-SNAPSHOT&lt;/version&gt;
               &lt;executions&gt;
@@ -80,6 +80,30 @@
               &lt;/executions&gt;
             &lt;/plugin&gt;
     </description>
+
+    <url>https://github.com/alramlechner/knxproj-maven-plugin</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>alramlechner</id>
+            <url>https://github.com/alramlechner</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/alramlechner/knxproj-maven-plugin.git</connection>
+        <developerConnection>scm:git:https://github.com/alramlechner/knxproj-maven-plugin.git</developerConnection>
+        <url>https://github.com/alramlechner/knxproj-maven-plugin</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
@@ -143,7 +167,68 @@
                     <target>11</target>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.6.3</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.4</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.5.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <!-- Matches the <server> id in ~/.m2/settings.xml -->
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>false</autoPublish>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>
