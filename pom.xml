@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>name.lechners.knx</groupId>
+    <artifactId>knxproj-maven-plugin</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>maven-plugin</packaging>
+
+    <name>KNX Project Maven Plugin</name>
+    <description>
+        Generates Java source code (Calimero GroupAddress constants) from an ETS .knxproj file.
+
+        Notes:
+        The source knx project file should be versioned along with the project, where the generated sources are used.
+        Otherwise, it breaks reproducibility of your build. Tested with projects saved with ETS version 6 only.
+
+        Goal: knxproj:generate  (default phase: generate-sources)
+
+        Parameters:
+        ┌──────────────────────┬─────────────────────────────────────────────────────────┬──────────────────────────────────────────┬──────────┐
+        │ Parameter            │ CLI property                                            │ Default                                  │ Required │
+        ├──────────────────────┼─────────────────────────────────────────────────────────┼──────────────────────────────────────────┼──────────┤
+        │ knxprojFile          │ -Dknxproj.file=...                                      │ –                                        │ yes      │
+        │                      │ Path to the ETS project file (.knxproj).                │                                          │          │
+        ├──────────────────────┼─────────────────────────────────────────────────────────┼──────────────────────────────────────────┼──────────┤
+        │ packageName          │ -Dknxproj.packageName=...                               │ –                                        │ yes      │
+        │                      │ Java package for the generated class,                   │                                          │          │
+        │                      │ e.g. com.example.knx.                                   │                                          │          │
+        ├──────────────────────┼─────────────────────────────────────────────────────────┼──────────────────────────────────────────┼──────────┤
+        │ outputDirectory      │ -Dknxproj.outputDirectory=...                           │ ${project.build.directory}/              │ no       │
+        │                      │ Root output directory for generated sources.             │   generated-sources/knx                  │          │
+        │                      │ The package sub-directories are created automatically.  │                                          │          │
+        ├──────────────────────┼─────────────────────────────────────────────────────────┼──────────────────────────────────────────┼──────────┤
+        │ className            │ -Dknxproj.className=...                                 │ KNXGroupAddresses                        │ no       │
+        │                      │ Simple name of the generated Java class.                │                                          │          │
+        ├──────────────────────┼─────────────────────────────────────────────────────────┼──────────────────────────────────────────┼──────────┤
+        │ groupAddressClass    │ -Dknxproj.groupAddressClass=...                         │ tuwien.auto.calimero.GroupAddress         │ no       │
+        │                      │ Fully-qualified Calimero GroupAddress type used in the  │                                          │          │
+        │                      │ generated constants. Override if you use a forked or    │                                          │          │
+        │                      │ repackaged Calimero artifact.                           │                                          │          │
+        ├──────────────────────┼─────────────────────────────────────────────────────────┼──────────────────────────────────────────┼──────────┤
+        │ skip                 │ -Dknxproj.skip=true                                     │ false                                    │ no       │
+        │                      │ Set to true to skip execution of the goal entirely.     │                                          │          │
+        └──────────────────────┴─────────────────────────────────────────────────────────┴──────────────────────────────────────────┴──────────┘
+
+        Runtime dependency of the generated code:
+        The generated class imports tuwien.auto.calimero.GroupAddress. The consuming project must
+        therefore declare a dependency on the Calimero core library:
+
+            &lt;dependency&gt;
+              &lt;groupId&gt;io.calimero&lt;/groupId&gt;
+              &lt;artifactId&gt;calimero-core&lt;/artifactId&gt;
+              &lt;version&gt;2.6.x&lt;/version&gt;  &lt;!-- use the version you target --&gt;
+            &lt;/dependency&gt;
+
+        Minimal configuration example in a consuming project:
+
+            &lt;plugin&gt;
+              &lt;groupId&gt;name.lechners.knx&lt;/groupId&gt;
+              &lt;artifactId&gt;knxproj-maven-plugin&lt;/artifactId&gt;
+              &lt;version&gt;1.0.0-SNAPSHOT&lt;/version&gt;
+              &lt;executions&gt;
+                &lt;execution&gt;
+                  &lt;goals&gt;&lt;goal&gt;generate&lt;/goal&gt;&lt;/goals&gt;
+                  &lt;configuration&gt;
+                    &lt;!-- Required --&gt;
+                    &lt;knxprojFile&gt;${project.basedir}/src/main/knx/MyProject.knxproj&lt;/knxprojFile&gt;
+                    &lt;packageName&gt;com.example.knx&lt;/packageName&gt;
+                    &lt;!-- Optional --&gt;
+                    &lt;!-- &lt;className&gt;KNXGroupAddresses&lt;/className&gt; --&gt;
+                    &lt;!-- &lt;outputDirectory&gt;${project.build.directory}/generated-sources/knx&lt;/outputDirectory&gt; --&gt;
+                    &lt;!-- &lt;groupAddressClass&gt;tuwien.auto.calimero.GroupAddress&lt;/groupAddressClass&gt; --&gt;
+                    &lt;!-- &lt;skip&gt;false&lt;/skip&gt; --&gt;
+                  &lt;/configuration&gt;
+                &lt;/execution&gt;
+              &lt;/executions&gt;
+            &lt;/plugin&gt;
+    </description>
+
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.version>3.9.6</maven.version>
+        <maven-plugin-tools.version>3.11.0</maven-plugin-tools.version>
+    </properties>
+
+    <dependencies>
+        <!-- Maven Plugin API -->
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-plugin-api</artifactId>
+            <version>${maven.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Annotation-based descriptor generation -->
+        <dependency>
+            <groupId>org.apache.maven.plugin-tools</groupId>
+            <artifactId>maven-plugin-annotations</artifactId>
+            <version>${maven-plugin-tools.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- MavenProject for adding generated source roots -->
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-core</artifactId>
+            <version>${maven.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-plugin-plugin</artifactId>
+                <version>${maven-plugin-tools.version}</version>
+                <executions>
+                    <execution>
+                        <id>default-descriptor</id>
+                        <goals>
+                            <goal>descriptor</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>help-descriptor</id>
+                        <goals>
+                            <goal>helpmojo</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>11</source>
+                    <target>11</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
