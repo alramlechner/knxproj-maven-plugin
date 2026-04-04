@@ -9,17 +9,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Generates a Java source file containing Calimero {@code GroupAddress} constants
- * from a list of parsed KNX group address entries.
+ * Generates a Java source file containing {@code KnxDatapoint} constants
+ * (wrapping a Calimero {@code GroupAddress} and a {@code DptId}) from a list
+ * of parsed KNX group address entries.
  *
  * <p>The generated class uses one nested {@code static final} inner class per
- * Hauptgruppe. This allows concise usage like:
+ * Hauptgruppe. Each constant is of the generated {@code KnxDatapoint} record
+ * type, which combines the group address with the ETS datapoint type.
+ *
  * <pre>{@code
- *   process.send(KNXGroupAddresses.Licht.WOHNZIMMER_EIN_AUS, new DPT1Value(true));
- * }</pre>
- * and selective imports via:
- * <pre>{@code
- *   import static com.example.KNXGroupAddresses.Licht.*;
+ *   // Access address and DPT in one object:
+ *   KnxDatapoint dp = KNXGroupAddresses.Licht.WOHNZIMMER_EIN_AUS;
+ *   process.send(dp.address(), new DPT1Value(true));
+ *   DptId dpt = dp.dpt();  // e.g. DptId[mainNumber=1, subNumber=1]
  * }</pre>
  */
 public class JavaSourceGenerator {
@@ -34,6 +36,7 @@ public class JavaSourceGenerator {
      * @param packageName       Java package of the generated class
      * @param className         simple class name of the generated class
      * @param groupAddressClass fully-qualified class name of the GroupAddress type to use
+     * @param dptIdClass        fully-qualified class name of the DptId type to use
      * @param sourceFile        original .knxproj filename (used in Javadoc)
      * @param generatedAt       timestamp for the generated-at comment
      * @return Java source code as a string
@@ -42,10 +45,12 @@ public class JavaSourceGenerator {
                            String packageName,
                            String className,
                            String groupAddressClass,
+                           String dptIdClass,
                            String sourceFile,
                            LocalDateTime generatedAt) {
 
-        String simpleGaClass = simpleClassName(groupAddressClass);
+        String simpleGaClass    = simpleClassName(groupAddressClass);
+        String simpleDptIdClass = simpleClassName(dptIdClass);
 
         // Group entries by Hauptgruppe, preserving insertion order
         Map<String, List<GroupAddressEntry>> byHauptgruppe = new LinkedHashMap<>();
@@ -58,6 +63,7 @@ public class JavaSourceGenerator {
         // ── Package & imports ──────────────────────────────────────────────────
         sb.append("package ").append(packageName).append(";\n\n");
         sb.append("import ").append(groupAddressClass).append(";\n");
+        sb.append("import ").append(dptIdClass).append(";\n");
         sb.append("import java.util.Collections;\n");
         sb.append("import java.util.LinkedHashMap;\n");
         sb.append("import java.util.Map;\n\n\n");
@@ -75,7 +81,18 @@ public class JavaSourceGenerator {
         sb.append(" */\n");
         sb.append("@SuppressWarnings(\"unused\")\n");
         sb.append("public final class ").append(className).append(" {\n\n");
-        sb.append("    private ").append(className).append("() {}\n");
+        sb.append("    private ").append(className).append("() {}\n\n");
+
+        // ── KnxDatapoint record (generated once at the top of the class) ───────
+        sb.append("    /**\n");
+        sb.append("     * Combines a KNX group address with its ETS datapoint type.\n");
+        sb.append("     *\n");
+        sb.append("     * @param address the KNX group address\n");
+        sb.append("     * @param dpt     the ETS datapoint type, or {@code null} if not defined\n");
+        sb.append("     */\n");
+        sb.append("    public record KnxDatapoint(")
+          .append(simpleGaClass).append(" address, ")
+          .append(simpleDptIdClass).append(" dpt) {}\n");
 
         // ── One nested class per Hauptgruppe ───────────────────────────────────
         for (Map.Entry<String, List<GroupAddressEntry>> groupEntry : byHauptgruppe.entrySet()) {
@@ -92,12 +109,9 @@ public class JavaSourceGenerator {
             sb.append("    public static final class ").append(nestedClassName).append(" {\n\n");
             sb.append("        private ").append(nestedClassName).append("() {}\n");
 
-            // Track used identifiers within this class to detect collisions
-            Map<String, Integer> usedNames = new HashMap<>();
+            Map<String, Integer> usedNames     = new HashMap<>();
+            List<String>         allIdentifiers = new ArrayList<>(); // ordered, for BY_ADDRESS map
             String currentMittelgruppe = null;
-
-            // Ordered map of identifier → DPT for the DATAPOINT_TYPES map at the end
-            Map<String, String> dptEntries = new LinkedHashMap<>();
 
             for (GroupAddressEntry ga : groupAddresses) {
                 // Mittelgruppe separator comment
@@ -111,13 +125,13 @@ public class JavaSourceGenerator {
                 }
 
                 String identifier = toJavaConstantName(ga.getName());
-                // Resolve collision: append raw address suffix
                 if (usedNames.containsKey(identifier)) {
                     identifier = identifier + "_" + ga.getRawAddress();
                 }
                 usedNames.put(identifier, ga.getRawAddress());
+                allIdentifiers.add(identifier);
 
-                // Javadoc: name · address · datapoint type (no free-text description fields)
+                // Javadoc: name · address · datapoint type
                 sb.append("\n        /** ").append(escapeHtml(ga.getName()))
                   .append(" · ").append(ga.getFormattedAddress());
                 if (!ga.getDatapointType().isEmpty()) {
@@ -125,47 +139,41 @@ public class JavaSourceGenerator {
                 }
                 sb.append(" */\n");
 
-                // Constant declaration – 3-level constructor: new GroupAddress(main, middle, sub)
+                // Address bit decomposition
                 int addr   = ga.getRawAddress();
                 int main   = (addr >> 11) & 0x1F;
                 int middle = (addr >>  8) & 0x07;
                 int sub    =  addr        & 0xFF;
 
-                sb.append("        public static final ")
-                  .append(simpleGaClass).append(" ")
-                  .append(identifier)
-                  .append(" = new ").append(simpleGaClass)
-                  .append("(").append(main).append(", ")
-                  .append(middle).append(", ")
-                  .append(sub).append(");\n");
+                // DptId argument – new DptId(main, sub) or null
+                int[] dptParts = parseDptId(ga.getDatapointType());
+                String dptArg = dptParts != null
+                        ? "new " + simpleDptIdClass + "(" + dptParts[0] + ", " + dptParts[1] + ")"
+                        : "null";
 
-                // Companion DPT constant (only when a datapoint type is defined in ETS)
-                String dpt = ga.getDatapointType();
-                if (!dpt.isEmpty()) {
-                    sb.append("        /** Datapoint type for {@link #").append(identifier).append("} */\n");
-                    sb.append("        public static final String ").append(identifier)
-                      .append("_DPT = \"").append(dpt).append("\";\n");
-                    dptEntries.put(identifier, dpt);
-                }
+                sb.append("        public static final KnxDatapoint ")
+                  .append(identifier)
+                  .append(" = new KnxDatapoint(new ").append(simpleGaClass)
+                  .append("(").append(main).append(", ").append(middle).append(", ").append(sub).append(")")
+                  .append(", ").append(dptArg).append(");\n");
             }
 
-            // Static DATAPOINT_TYPES map for runtime lookup (address → DPT string)
+            // ── BY_ADDRESS: GroupAddress → KnxDatapoint, for runtime lookup ───
             sb.append("\n        /**\n");
-            sb.append("         * Maps every group address constant in this group to its ETS datapoint type string.\n");
-            sb.append("         * Contains only entries for which a datapoint type was defined in the ETS project.\n");
-            sb.append("         * Example lookup: {@code String dpt = ").append(nestedClassName)
-              .append(".DATAPOINT_TYPES.get(").append(nestedClassName).append(".SOME_ADDRESS);}\n");
+            sb.append("         * Maps every group address in this group to its {@link KnxDatapoint}.\n");
+            sb.append("         * Useful for runtime lookup when only the raw address is known.\n");
+            sb.append("         * <pre>KnxDatapoint dp = ")
+              .append(nestedClassName).append(".BY_ADDRESS.get(receivedAddress);</pre>\n");
             sb.append("         */\n");
             sb.append("        public static final Map<").append(simpleGaClass)
-              .append(", String> DATAPOINT_TYPES;\n");
+              .append(", KnxDatapoint> BY_ADDRESS;\n");
             sb.append("        static {\n");
             sb.append("            Map<").append(simpleGaClass)
-              .append(", String> m = new LinkedHashMap<>();\n");
-            for (Map.Entry<String, String> e : dptEntries.entrySet()) {
-                sb.append("            m.put(").append(e.getKey())
-                  .append(", \"").append(e.getValue()).append("\");\n");
+              .append(", KnxDatapoint> m = new LinkedHashMap<>();\n");
+            for (String id : allIdentifiers) {
+                sb.append("            m.put(").append(id).append(".address(), ").append(id).append(");\n");
             }
-            sb.append("            DATAPOINT_TYPES = Collections.unmodifiableMap(m);\n");
+            sb.append("            BY_ADDRESS = Collections.unmodifiableMap(m);\n");
             sb.append("        }\n");
 
             sb.append("    }\n");
@@ -173,6 +181,33 @@ public class JavaSourceGenerator {
 
         sb.append("}\n");
         return sb.toString();
+    }
+
+    /**
+     * Parses an ETS datapoint type string into {@code [mainNumber, subNumber]}.
+     *
+     * <p>Supported formats:
+     * <ul>
+     *   <li>{@code DPT-1}    → {@code [1, 0]}
+     *   <li>{@code DPST-1-1} → {@code [1, 1]}
+     * </ul>
+     *
+     * @param dpt ETS datapoint type string, may be empty or null
+     * @return two-element array {@code [main, sub]}, or {@code null} if not parseable
+     */
+    static int[] parseDptId(String dpt) {
+        if (dpt == null || dpt.isEmpty()) return null;
+        try {
+            if (dpt.startsWith("DPST-")) {
+                String[] parts = dpt.substring(5).split("-", 2);
+                if (parts.length == 2) {
+                    return new int[]{ Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) };
+                }
+            } else if (dpt.startsWith("DPT-")) {
+                return new int[]{ Integer.parseInt(dpt.substring(4)), 0 };
+            }
+        } catch (NumberFormatException ignored) { }
+        return null;
     }
 
     // ── Name conversion utilities ──────────────────────────────────────────────
@@ -192,7 +227,6 @@ public class JavaSourceGenerator {
     static String toJavaClassName(String name) {
         String normalized = normalize(name);
         if (normalized.isEmpty()) return "Default";
-        // PascalCase: capitalize first letter of each word segment
         String[] parts = normalized.split("_");
         StringBuilder sb = new StringBuilder();
         for (String part : parts) {
@@ -224,7 +258,6 @@ public class JavaSourceGenerator {
                     if (Character.isLetterOrDigit(c)) {
                         sb.append(c);
                     } else {
-                        // Replace any non-alphanumeric character with underscore separator
                         if (sb.length() > 0 && sb.charAt(sb.length() - 1) != '_') {
                             sb.append('_');
                         }
@@ -232,12 +265,10 @@ public class JavaSourceGenerator {
             }
         }
 
-        // Strip leading/trailing underscores
         String result = sb.toString().replaceAll("_+", "_");
         while (result.startsWith("_")) result = result.substring(1);
         while (result.endsWith("_"))   result = result.substring(0, result.length() - 1);
 
-        // Ensure the identifier doesn't start with a digit
         if (!result.isEmpty() && Character.isDigit(result.charAt(0))) {
             result = "_" + result;
         }

@@ -128,11 +128,16 @@ public class GenerateGroupAddressesMojo extends AbstractMojo {
         getLog().info("Found " + entries.size() + " group addresses.");
 
         // ── Generate Java source ───────────────────────────────────────────────
+        // Derive DptId class from groupAddressClass:
+        // e.g. tuwien.auto.calimero.GroupAddress → tuwien.auto.calimero.dptxlator.DptId
+        String dptIdClass = groupAddressClass.replace(".GroupAddress", ".dptxlator.DptId");
+
         String source = new JavaSourceGenerator().generate(
                 entries,
                 packageName,
                 className,
                 groupAddressClass,
+                dptIdClass,
                 knxprojFile.getName(),
                 LocalDateTime.now());
 
