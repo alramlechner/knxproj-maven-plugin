@@ -57,7 +57,10 @@ public class JavaSourceGenerator {
 
         // ── Package & imports ──────────────────────────────────────────────────
         sb.append("package ").append(packageName).append(";\n\n");
-        sb.append("import ").append(groupAddressClass).append(";\n\n\n");
+        sb.append("import ").append(groupAddressClass).append(";\n");
+        sb.append("import java.util.Collections;\n");
+        sb.append("import java.util.LinkedHashMap;\n");
+        sb.append("import java.util.Map;\n\n\n");
 
         // ── Class Javadoc ──────────────────────────────────────────────────────
         sb.append("/**\n");
@@ -92,6 +95,9 @@ public class JavaSourceGenerator {
             // Track used identifiers within this class to detect collisions
             Map<String, Integer> usedNames = new HashMap<>();
             String currentMittelgruppe = null;
+
+            // Ordered map of identifier → DPT for the DATAPOINT_TYPES map at the end
+            Map<String, String> dptEntries = new LinkedHashMap<>();
 
             for (GroupAddressEntry ga : groupAddresses) {
                 // Mittelgruppe separator comment
@@ -132,7 +138,35 @@ public class JavaSourceGenerator {
                   .append("(").append(main).append(", ")
                   .append(middle).append(", ")
                   .append(sub).append(");\n");
+
+                // Companion DPT constant (only when a datapoint type is defined in ETS)
+                String dpt = ga.getDatapointType();
+                if (!dpt.isEmpty()) {
+                    sb.append("        /** Datapoint type for {@link #").append(identifier).append("} */\n");
+                    sb.append("        public static final String ").append(identifier)
+                      .append("_DPT = \"").append(dpt).append("\";\n");
+                    dptEntries.put(identifier, dpt);
+                }
             }
+
+            // Static DATAPOINT_TYPES map for runtime lookup (address → DPT string)
+            sb.append("\n        /**\n");
+            sb.append("         * Maps every group address constant in this group to its ETS datapoint type string.\n");
+            sb.append("         * Contains only entries for which a datapoint type was defined in the ETS project.\n");
+            sb.append("         * Example lookup: {@code String dpt = ").append(nestedClassName)
+              .append(".DATAPOINT_TYPES.get(").append(nestedClassName).append(".SOME_ADDRESS);}\n");
+            sb.append("         */\n");
+            sb.append("        public static final Map<").append(simpleGaClass)
+              .append(", String> DATAPOINT_TYPES;\n");
+            sb.append("        static {\n");
+            sb.append("            Map<").append(simpleGaClass)
+              .append(", String> m = new LinkedHashMap<>();\n");
+            for (Map.Entry<String, String> e : dptEntries.entrySet()) {
+                sb.append("            m.put(").append(e.getKey())
+                  .append(", \"").append(e.getValue()).append("\");\n");
+            }
+            sb.append("            DATAPOINT_TYPES = Collections.unmodifiableMap(m);\n");
+            sb.append("        }\n");
 
             sb.append("    }\n");
         }
