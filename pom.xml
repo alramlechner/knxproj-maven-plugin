@@ -7,16 +7,24 @@
 
     <groupId>io.github.alramlechner</groupId>
     <artifactId>knxproj-maven-plugin</artifactId>
-    <version>1.1.0-SNAPSHOT</version>
+    <version>1.1.0</version>
     <packaging>maven-plugin</packaging>
 
     <name>KNX Project Maven Plugin</name>
     <description>
-        Generates Java source code (Calimero GroupAddress constants) from an ETS .knxproj file.
+        Generates Java source code from an ETS .knxproj file.
+
+        For each Hauptgruppe the plugin generates a nested class containing:
+        - strongly-typed GroupAddress constants (one per group address)
+        - a KnxDatapoint record bundling GroupAddress, ETS name, and Calimero DPT constant
+        - a BY_ADDRESS map (Map&lt;GroupAddress, KnxDatapoint&gt;) for efficient runtime lookup
+
+        Supported DPT main types with direct Calimero constant mapping: 1, 5, 6, 7, 8, 9, 10, 11, 16, 232.
 
         Notes:
-        The source knx project file should be versioned along with the project, where the generated sources are used.
-        Otherwise, it breaks reproducibility of your build. Tested with projects saved with ETS version 6 only.
+        The source knx project file should be versioned along with the project where the generated
+        sources are used. Otherwise it breaks reproducibility of your build.
+        Tested with projects saved with ETS version 6 only.
 
         Goal: knxproj:generate  (default phase: generate-sources)
 
@@ -38,7 +46,7 @@
         │ className            │ -Dknxproj.className=...                                 │ KNXGroupAddresses                        │ no       │
         │                      │ Simple name of the generated Java class.                │                                          │          │
         ├──────────────────────┼─────────────────────────────────────────────────────────┼──────────────────────────────────────────┼──────────┤
-        │ groupAddressClass    │ -Dknxproj.groupAddressClass=...                         │ tuwien.auto.calimero.GroupAddress         │ no       │
+        │ groupAddressClass    │ -Dknxproj.groupAddressClass=...                         │ io.calimero.GroupAddress                  │ no       │
         │                      │ Fully-qualified Calimero GroupAddress type used in the  │                                          │          │
         │                      │ generated constants. Override if you use a forked or    │                                          │          │
         │                      │ repackaged Calimero artifact.                           │                                          │          │
@@ -48,8 +56,9 @@
         └──────────────────────┴─────────────────────────────────────────────────────────┴──────────────────────────────────────────┴──────────┘
 
         Runtime dependency of the generated code:
-        The generated class imports tuwien.auto.calimero.GroupAddress. The consuming project must
-        therefore declare a dependency on the Calimero core library:
+        The generated class imports io.calimero.GroupAddress and io.calimero.dptxlator.DPT (plus
+        specific DPTXlator* classes for the DPT types used in your project). The consuming project
+        must declare a dependency on the Calimero core library:
 
             &lt;dependency&gt;
               &lt;groupId&gt;io.calimero&lt;/groupId&gt;
@@ -62,7 +71,7 @@
             &lt;plugin&gt;
               &lt;groupId&gt;io.github.alramlechner&lt;/groupId&gt;
               &lt;artifactId&gt;knxproj-maven-plugin&lt;/artifactId&gt;
-              &lt;version&gt;1.0.0-SNAPSHOT&lt;/version&gt;
+              &lt;version&gt;1.1.0&lt;/version&gt;
               &lt;executions&gt;
                 &lt;execution&gt;
                   &lt;goals&gt;&lt;goal&gt;generate&lt;/goal&gt;&lt;/goals&gt;
@@ -73,7 +82,7 @@
                     &lt;!-- Optional --&gt;
                     &lt;!-- &lt;className&gt;KNXGroupAddresses&lt;/className&gt; --&gt;
                     &lt;!-- &lt;outputDirectory&gt;${project.build.directory}/generated-sources/knx&lt;/outputDirectory&gt; --&gt;
-                    &lt;!-- &lt;groupAddressClass&gt;tuwien.auto.calimero.GroupAddress&lt;/groupAddressClass&gt; --&gt;
+                    &lt;!-- &lt;groupAddressClass&gt;io.calimero.GroupAddress&lt;/groupAddressClass&gt; --&gt;
                     &lt;!-- &lt;skip&gt;false&lt;/skip&gt; --&gt;
                   &lt;/configuration&gt;
                 &lt;/execution&gt;
