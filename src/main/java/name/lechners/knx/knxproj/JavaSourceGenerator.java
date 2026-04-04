@@ -107,7 +107,7 @@ public class JavaSourceGenerator {
         m.put("8.005", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIMESEC"});
         m.put("8.006", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIMEMIN"});
         m.put("8.007", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIMEHRS"});
-        m.put("8.010", new String[]{"DptXlator2ByteSigned", "DPT_PERCENT_V16"});
+        m.put("8.010", new String[]{"DptXlator2ByteSigned", "DptPercent"});
         m.put("8.011", new String[]{"DptXlator2ByteSigned", "DPT_ROTATION_ANGLE"});
 
         // ── Main type 9 – 2-byte float (DPTXlator2ByteFloat) ─────────────────
