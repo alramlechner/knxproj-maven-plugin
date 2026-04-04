@@ -99,16 +99,16 @@ public class JavaSourceGenerator {
         m.put("7.013", new String[]{"DPTXlator2ByteUnsigned", "DPT_BRIGHTNESS"});
         m.put("7.600", new String[]{"DPTXlator2ByteUnsigned", "DPT_ABSOLUTE_COLOR_TEMPERATURE"});
 
-        // ── Main type 8 – 2-byte signed (DPTXlator2ByteSigned) ───────────────
-        m.put("8.001", new String[]{"DPTXlator2ByteSigned", "DPT_VALUE_2_COUNT"});
-        m.put("8.002", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIMEMS"});
-        m.put("8.003", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIME10MS"});
-        m.put("8.004", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIME100MS"});
-        m.put("8.005", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIMESEC"});
-        m.put("8.006", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIMEMIN"});
-        m.put("8.007", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIMEHRS"});
-        m.put("8.010", new String[]{"DPTXlator2ByteSigned", "DPT_PERCENT_V16"});
-        m.put("8.011", new String[]{"DPTXlator2ByteSigned", "DPT_ROTATION_ANGLE"});
+        // ── Main type 8 – 2-byte signed (DptXlator2ByteSigned) ───────────────
+        m.put("8.001", new String[]{"DptXlator2ByteSigned", "DPT_VALUE_2_COUNT"});
+        m.put("8.002", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIMEMS"});
+        m.put("8.003", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIME10MS"});
+        m.put("8.004", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIME100MS"});
+        m.put("8.005", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIMESEC"});
+        m.put("8.006", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIMEMIN"});
+        m.put("8.007", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIMEHRS"});
+        m.put("8.010", new String[]{"DptXlator2ByteSigned", "DPT_PERCENT_V16"});
+        m.put("8.011", new String[]{"DptXlator2ByteSigned", "DPT_ROTATION_ANGLE"});
 
         // ── Main type 9 – 2-byte float (DPTXlator2ByteFloat) ─────────────────
         m.put("9.001", new String[]{"DPTXlator2ByteFloat", "DPT_TEMPERATURE"});
