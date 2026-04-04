@@ -21,7 +21,7 @@ Add the plugin to your `pom.xml`:
 <plugin>
   <groupId>io.github.alramlechner</groupId>
   <artifactId>knxproj-maven-plugin</artifactId>
-  <version>1.1.0</version>
+  <version>1.1.1</version>
   <executions>
     <execution>
       <goals><goal>generate</goal></goals>
@@ -32,7 +32,7 @@ Add the plugin to your `pom.xml`:
         <!-- Optional -->
         <!-- <className>KNXGroupAddresses</className> -->
         <!-- <outputDirectory>${project.build.directory}/generated-sources/knx</outputDirectory> -->
-        <!-- <groupAddressClass>io.calimero.GroupAddress</groupAddressClass> -->
+        <!-- <groupAddressClass>tuwien.auto.calimero.GroupAddress</groupAddressClass> -->
         <!-- <skip>false</skip> -->
       </configuration>
     </execution>
@@ -60,7 +60,7 @@ Also add the Calimero Core runtime dependency:
 | `packageName`      | `-Dknxproj.packageName=...`      | –                                                         | **yes**  |
 | `outputDirectory`  | `-Dknxproj.outputDirectory=...`  | `${project.build.directory}/generated-sources/knx`        | no       |
 | `className`        | `-Dknxproj.className=...`        | `KNXGroupAddresses`                                       | no       |
-| `groupAddressClass`| `-Dknxproj.groupAddressClass=...`| `io.calimero.GroupAddress`                                | no       |
+| `groupAddressClass`| `-Dknxproj.groupAddressClass=...`| `tuwien.auto.calimero.GroupAddress`                       | no       |
 | `skip`             | `-Dknxproj.skip=true`            | `false`                                                   | no       |
 
 ## Generated code example

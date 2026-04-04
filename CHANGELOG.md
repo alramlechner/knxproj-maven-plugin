@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-04-04
+
+### Fixed
+- Reverted default `groupAddressClass` back to `tuwien.auto.calimero.GroupAddress` (Calimero 2.6).
+  The change to `io.calimero` introduced in 1.1.0 incorrectly targeted Calimero 3.x, causing
+  `package io.calimero.dptxlator does not exist` compile errors in projects using Calimero 2.6.
+
 ## [1.1.0] - 2026-04-04
 
 ### Added

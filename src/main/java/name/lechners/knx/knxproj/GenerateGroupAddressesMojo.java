@@ -17,7 +17,7 @@ import java.util.List;
 
 /**
  * Reads a KNX ETS project file ({@code .knxproj}) and generates a Java source
- * file containing Calimero {@code io.calimero.GroupAddress} constants
+ * file containing Calimero {@code tuwien.auto.calimero.GroupAddress} constants
  * for every group address defined in the project.
  *
  * <p><b>Example usage in a consuming project:</b>
@@ -85,7 +85,7 @@ public class GenerateGroupAddressesMojo extends AbstractMojo {
      */
     @Parameter(
         property     = "knxproj.groupAddressClass",
-        defaultValue = "io.calimero.GroupAddress"
+        defaultValue = "tuwien.auto.calimero.GroupAddress"
     )
     private String groupAddressClass;
 
