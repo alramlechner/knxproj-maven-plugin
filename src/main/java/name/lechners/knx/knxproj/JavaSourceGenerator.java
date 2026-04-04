@@ -3,31 +3,152 @@ package name.lechners.knx.knxproj;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 /**
  * Generates a Java source file containing {@code KnxDatapoint} constants
- * (wrapping a Calimero {@code GroupAddress} and a {@code DptId}) from a list
+ * (wrapping a Calimero {@code GroupAddress} and a {@code DPT}) from a list
  * of parsed KNX group address entries.
  *
- * <p>The generated class uses one nested {@code static final} inner class per
- * Hauptgruppe. Each constant is of the generated {@code KnxDatapoint} record
- * type, which combines the group address with the ETS datapoint type.
+ * <p>For every group address whose ETS datapoint type maps to a known Calimero
+ * constant (e.g. {@code DPTXlatorBoolean.DPT_SWITCH}), the generated code
+ * references that constant directly.  Unknown–but–defined datapoint types fall
+ * back to {@code new DPT("X.XXX", "", "", "")}.  Addresses without any
+ * datapoint type get {@code null}.
  *
  * <pre>{@code
- *   // Access address and DPT in one object:
  *   KnxDatapoint dp = KNXGroupAddresses.Licht.WOHNZIMMER_EIN_AUS;
  *   process.send(dp.address(), new DPT1Value(true));
- *   DptId dpt = dp.dpt();  // e.g. DptId[mainNumber=1, subNumber=1]
+ *   DPT dpt = dp.dpt();                    // DPTXlatorBoolean.DPT_SWITCH
+ *   String unit = dpt.getUnit();           // ""
+ *   String desc = dpt.getDescription();    // "Switch"
  * }</pre>
  */
 public class JavaSourceGenerator {
 
     private static final DateTimeFormatter TIMESTAMP_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
+    // ── Built-in DPT constant mapping ─────────────────────────────────────────
+    //
+    // Key:   normalised DPT ID, e.g. "1.001"  (see normalizeDptId())
+    // Value: { simpleTranslatorClassName, publicConstantName }
+    //
+    // Only includes constants that carry DPT_ prefix (stable public API).
+    // Entries are intentionally conservative – if a constant is uncertain it is
+    // omitted so the fallback constructor is used instead of a compile error.
+
+    private static final Map<String, String[]> DPT_CONSTANT_MAP;
+    static {
+        Map<String, String[]> m = new HashMap<>();
+
+        // ── Main type 1 – Boolean (DPTXlatorBoolean) ──────────────────────────
+        m.put("1.001", new String[]{"DPTXlatorBoolean", "DPT_SWITCH"});
+        m.put("1.002", new String[]{"DPTXlatorBoolean", "DPT_BOOL"});
+        m.put("1.003", new String[]{"DPTXlatorBoolean", "DPT_ENABLE"});
+        m.put("1.004", new String[]{"DPTXlatorBoolean", "DPT_RAMP"});
+        m.put("1.005", new String[]{"DPTXlatorBoolean", "DPT_ALARM"});
+        m.put("1.006", new String[]{"DPTXlatorBoolean", "DPT_BINARYVALUE"});
+        m.put("1.007", new String[]{"DPTXlatorBoolean", "DPT_STEP"});
+        m.put("1.008", new String[]{"DPTXlatorBoolean", "DPT_UPDOWN"});
+        m.put("1.009", new String[]{"DPTXlatorBoolean", "DPT_OPENCLOSE"});
+        m.put("1.010", new String[]{"DPTXlatorBoolean", "DPT_START"});
+        m.put("1.011", new String[]{"DPTXlatorBoolean", "DPT_STATE"});
+        m.put("1.012", new String[]{"DPTXlatorBoolean", "DPT_INVERT"});
+        m.put("1.013", new String[]{"DPTXlatorBoolean", "DPT_DIMSENDSTYLE"});
+        m.put("1.014", new String[]{"DPTXlatorBoolean", "DPT_INPUTSOURCE"});
+        m.put("1.015", new String[]{"DPTXlatorBoolean", "DPT_RESET"});
+        m.put("1.016", new String[]{"DPTXlatorBoolean", "DPT_ACK"});
+        m.put("1.017", new String[]{"DPTXlatorBoolean", "DPT_TRIGGER"});
+        m.put("1.018", new String[]{"DPTXlatorBoolean", "DPT_OCCUPANCY"});
+        m.put("1.019", new String[]{"DPTXlatorBoolean", "DPT_WINDOW_DOOR"});
+        m.put("1.021", new String[]{"DPTXlatorBoolean", "DPT_LOGICAL_FUNCTION"});
+        m.put("1.022", new String[]{"DPTXlatorBoolean", "DPT_SCENE_AB"});
+        m.put("1.023", new String[]{"DPTXlatorBoolean", "DPT_SHUTTER_BLINDS_MODE"});
+        m.put("1.100", new String[]{"DPTXlatorBoolean", "DPT_HEAT_COOL"});
+
+        // ── Main type 5 – 8-bit unsigned (DPTXlator8BitUnsigned) ──────────────
+        m.put("5.001", new String[]{"DPTXlator8BitUnsigned", "DPT_SCALING"});
+        m.put("5.003", new String[]{"DPTXlator8BitUnsigned", "DPT_ANGLE"});
+        m.put("5.004", new String[]{"DPTXlator8BitUnsigned", "DPT_PERCENT_U8"});
+        m.put("5.005", new String[]{"DPTXlator8BitUnsigned", "DPT_DECIMALFACTOR"});
+        m.put("5.006", new String[]{"DPTXlator8BitUnsigned", "DPT_TARIFF"});
+        m.put("5.010", new String[]{"DPTXlator8BitUnsigned", "DPT_VALUE_1_UCOUNT"});
+
+        // ── Main type 6 – 8-bit signed (DPTXlator8BitSigned) ──────────────────
+        m.put("6.001", new String[]{"DPTXlator8BitSigned", "DPT_PERCENT_V8"});
+        m.put("6.010", new String[]{"DPTXlator8BitSigned", "DPT_VALUE_1_COUNT"});
+        m.put("6.020", new String[]{"DPTXlator8BitSigned", "DPT_STATUS_MODE3"});
+
+        // ── Main type 7 – 2-byte unsigned (DPTXlator2ByteUnsigned) ───────────
+        m.put("7.001", new String[]{"DPTXlator2ByteUnsigned", "DPT_VALUE_2_UCOUNT"});
+        m.put("7.002", new String[]{"DPTXlator2ByteUnsigned", "DPT_TIMEPERIOD"});
+        m.put("7.003", new String[]{"DPTXlator2ByteUnsigned", "DPT_TIMEPERIOD_10"});
+        m.put("7.004", new String[]{"DPTXlator2ByteUnsigned", "DPT_TIMEPERIOD_100"});
+        m.put("7.005", new String[]{"DPTXlator2ByteUnsigned", "DPT_TIMEPERIOD_SEC"});
+        m.put("7.006", new String[]{"DPTXlator2ByteUnsigned", "DPT_TIMEPERIOD_MIN"});
+        m.put("7.007", new String[]{"DPTXlator2ByteUnsigned", "DPT_TIMEPERIOD_HOURS"});
+        m.put("7.010", new String[]{"DPTXlator2ByteUnsigned", "DPT_PROP_DATATYPE"});
+        m.put("7.011", new String[]{"DPTXlator2ByteUnsigned", "DPT_LENGTH_MM"});
+        m.put("7.012", new String[]{"DPTXlator2ByteUnsigned", "DPT_ELECTRICAL_CURRENT"});
+        m.put("7.013", new String[]{"DPTXlator2ByteUnsigned", "DPT_BRIGHTNESS"});
+        m.put("7.600", new String[]{"DPTXlator2ByteUnsigned", "DPT_ABSOLUTE_COLOR_TEMPERATURE"});
+
+        // ── Main type 8 – 2-byte signed (DPTXlator2ByteSigned) ───────────────
+        m.put("8.001", new String[]{"DPTXlator2ByteSigned", "DPT_VALUE_2_COUNT"});
+        m.put("8.002", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIMEMS"});
+        m.put("8.003", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIME10MS"});
+        m.put("8.004", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIME100MS"});
+        m.put("8.005", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIMESEC"});
+        m.put("8.006", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIMEMIN"});
+        m.put("8.007", new String[]{"DPTXlator2ByteSigned", "DPT_DELTA_TIMEHRS"});
+        m.put("8.010", new String[]{"DPTXlator2ByteSigned", "DPT_PERCENT_V16"});
+        m.put("8.011", new String[]{"DPTXlator2ByteSigned", "DPT_ROTATION_ANGLE"});
+
+        // ── Main type 9 – 2-byte float (DPTXlator2ByteFloat) ─────────────────
+        m.put("9.001", new String[]{"DPTXlator2ByteFloat", "DPT_TEMPERATURE"});
+        m.put("9.002", new String[]{"DPTXlator2ByteFloat", "DPT_TEMPERATURE_DIFFERENCE"});
+        m.put("9.003", new String[]{"DPTXlator2ByteFloat", "DPT_TEMPERATURE_GRADIENT"});
+        m.put("9.004", new String[]{"DPTXlator2ByteFloat", "DPT_INTENSITY_OF_LIGHT"});
+        m.put("9.005", new String[]{"DPTXlator2ByteFloat", "DPT_WIND_SPEED"});
+        m.put("9.006", new String[]{"DPTXlator2ByteFloat", "DPT_AIR_PRESSURE"});
+        m.put("9.007", new String[]{"DPTXlator2ByteFloat", "DPT_HUMIDITY"});
+        m.put("9.008", new String[]{"DPTXlator2ByteFloat", "DPT_AIRQUALITY"});
+        m.put("9.009", new String[]{"DPTXlator2ByteFloat", "DPT_AIR_FLOW"});
+        m.put("9.010", new String[]{"DPTXlator2ByteFloat", "DPT_TIME_DIFFERENCE1"});
+        m.put("9.011", new String[]{"DPTXlator2ByteFloat", "DPT_TIME_DIFFERENCE2"});
+        m.put("9.020", new String[]{"DPTXlator2ByteFloat", "DPT_VOLTAGE"});
+        m.put("9.021", new String[]{"DPTXlator2ByteFloat", "DPT_ELECTRICAL_CURRENT"});
+        m.put("9.022", new String[]{"DPTXlator2ByteFloat", "DPT_POWERDENSITY"});
+        m.put("9.023", new String[]{"DPTXlator2ByteFloat", "DPT_KELVIN_PER_PERCENT"});
+        m.put("9.024", new String[]{"DPTXlator2ByteFloat", "DPT_POWER"});
+        m.put("9.025", new String[]{"DPTXlator2ByteFloat", "DPT_VOLUME_FLOW"});
+        m.put("9.026", new String[]{"DPTXlator2ByteFloat", "DPT_RAIN_AMOUNT"});
+        m.put("9.027", new String[]{"DPTXlator2ByteFloat", "DPT_TEMP_F"});
+        m.put("9.028", new String[]{"DPTXlator2ByteFloat", "DPT_WIND_SPEED_KMH"});
+
+        // ── Main type 10 – Time (DPTXlatorTime) ──────────────────────────────
+        m.put("10.001", new String[]{"DPTXlatorTime", "DPT_TIMEOFDAY"});
+
+        // ── Main type 11 – Date (DPTXlatorDate) ──────────────────────────────
+        m.put("11.001", new String[]{"DPTXlatorDate", "DPT_DATE"});
+
+        // ── Main type 16 – String (DPTXlatorString) ──────────────────────────
+        m.put("16.000", new String[]{"DPTXlatorString", "DPT_STRING_ASCII"});
+        m.put("16.001", new String[]{"DPTXlatorString", "DPT_STRING_8859_1"});
+
+        // ── Main type 232 – RGB (DPTXlatorRGB) ───────────────────────────────
+        m.put("232.600", new String[]{"DPTXlatorRGB", "DPT_RGB"});
+
+        DPT_CONSTANT_MAP = Collections.unmodifiableMap(m);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Generates the complete Java source file content.
@@ -36,7 +157,7 @@ public class JavaSourceGenerator {
      * @param packageName       Java package of the generated class
      * @param className         simple class name of the generated class
      * @param groupAddressClass fully-qualified class name of the GroupAddress type to use
-     * @param dptIdClass        fully-qualified class name of the DptId type to use
+     * @param dptClass          fully-qualified class name of the DPT type to use
      * @param sourceFile        original .knxproj filename (used in Javadoc)
      * @param generatedAt       timestamp for the generated-at comment
      * @return Java source code as a string
@@ -45,12 +166,15 @@ public class JavaSourceGenerator {
                            String packageName,
                            String className,
                            String groupAddressClass,
-                           String dptIdClass,
+                           String dptClass,
                            String sourceFile,
                            LocalDateTime generatedAt) {
 
-        String simpleGaClass    = simpleClassName(groupAddressClass);
-        String simpleDptIdClass = simpleClassName(dptIdClass);
+        String simpleGaClass  = simpleClassName(groupAddressClass);
+        String simpleDptClass = simpleClassName(dptClass);
+
+        // Package prefix for translator classes, e.g. "io.calimero.dptxlator."
+        String xlatorPackage = dptClass.substring(0, dptClass.lastIndexOf('.') + 1);
 
         // Group entries by Hauptgruppe, preserving insertion order
         Map<String, List<GroupAddressEntry>> byHauptgruppe = new LinkedHashMap<>();
@@ -58,17 +182,27 @@ public class JavaSourceGenerator {
             byHauptgruppe.computeIfAbsent(e.getHauptgruppe(), k -> new ArrayList<>()).add(e);
         }
 
+        // ── Pass 1: collect translator classes actually needed ─────────────────
+        TreeSet<String> xlatorImports = new TreeSet<>();
+        for (GroupAddressEntry e : entries) {
+            dptExpression(e.getDatapointType(), simpleDptClass, xlatorPackage, xlatorImports);
+        }
+
+        // ── Pass 2: generate source ────────────────────────────────────────────
         StringBuilder sb = new StringBuilder(64 * 1024);
 
-        // ── Package & imports ──────────────────────────────────────────────────
+        // Package & imports
         sb.append("package ").append(packageName).append(";\n\n");
         sb.append("import ").append(groupAddressClass).append(";\n");
-        sb.append("import ").append(dptIdClass).append(";\n");
+        sb.append("import ").append(dptClass).append(";\n");
+        for (String xlatorImport : xlatorImports) {
+            sb.append("import ").append(xlatorImport).append(";\n");
+        }
         sb.append("import java.util.Collections;\n");
         sb.append("import java.util.LinkedHashMap;\n");
         sb.append("import java.util.Map;\n\n\n");
 
-        // ── Class Javadoc ──────────────────────────────────────────────────────
+        // Class Javadoc
         sb.append("/**\n");
         sb.append(" * KNX Group Addresses.\n");
         sb.append(" *\n");
@@ -83,18 +217,19 @@ public class JavaSourceGenerator {
         sb.append("public final class ").append(className).append(" {\n\n");
         sb.append("    private ").append(className).append("() {}\n\n");
 
-        // ── KnxDatapoint record (generated once at the top of the class) ───────
+        // KnxDatapoint record – generated once per class
         sb.append("    /**\n");
-        sb.append("     * Combines a KNX group address with its ETS datapoint type.\n");
+        sb.append("     * Combines a KNX group address with its Calimero datapoint type.\n");
         sb.append("     *\n");
         sb.append("     * @param address the KNX group address\n");
-        sb.append("     * @param dpt     the ETS datapoint type, or {@code null} if not defined\n");
+        sb.append("     * @param dpt     the Calimero {@link DPT} constant, or {@code null} if\n");
+        sb.append("     *                no datapoint type was defined in ETS\n");
         sb.append("     */\n");
         sb.append("    public record KnxDatapoint(")
           .append(simpleGaClass).append(" address, ")
-          .append(simpleDptIdClass).append(" dpt) {}\n");
+          .append(simpleDptClass).append(" dpt) {}\n");
 
-        // ── One nested class per Hauptgruppe ───────────────────────────────────
+        // One nested class per Hauptgruppe
         for (Map.Entry<String, List<GroupAddressEntry>> groupEntry : byHauptgruppe.entrySet()) {
             String hauptgruppe      = groupEntry.getKey();
             List<GroupAddressEntry> groupAddresses = groupEntry.getValue();
@@ -109,12 +244,11 @@ public class JavaSourceGenerator {
             sb.append("    public static final class ").append(nestedClassName).append(" {\n\n");
             sb.append("        private ").append(nestedClassName).append("() {}\n");
 
-            Map<String, Integer> usedNames     = new HashMap<>();
-            List<String>         allIdentifiers = new ArrayList<>(); // ordered, for BY_ADDRESS map
+            Map<String, Integer> usedNames    = new HashMap<>();
+            List<String>         identifiers  = new ArrayList<>();
             String currentMittelgruppe = null;
 
             for (GroupAddressEntry ga : groupAddresses) {
-                // Mittelgruppe separator comment
                 String mg = ga.getMittelgruppe();
                 if (!mg.equals(currentMittelgruppe)) {
                     currentMittelgruppe = mg;
@@ -129,9 +263,9 @@ public class JavaSourceGenerator {
                     identifier = identifier + "_" + ga.getRawAddress();
                 }
                 usedNames.put(identifier, ga.getRawAddress());
-                allIdentifiers.add(identifier);
+                identifiers.add(identifier);
 
-                // Javadoc: name · address · datapoint type
+                // Javadoc: name · address · DPT (if defined)
                 sb.append("\n        /** ").append(escapeHtml(ga.getName()))
                   .append(" · ").append(ga.getFormattedAddress());
                 if (!ga.getDatapointType().isEmpty()) {
@@ -139,17 +273,13 @@ public class JavaSourceGenerator {
                 }
                 sb.append(" */\n");
 
-                // Address bit decomposition
                 int addr   = ga.getRawAddress();
                 int main   = (addr >> 11) & 0x1F;
                 int middle = (addr >>  8) & 0x07;
                 int sub    =  addr        & 0xFF;
 
-                // DptId argument – new DptId(main, sub) or null
-                int[] dptParts = parseDptId(ga.getDatapointType());
-                String dptArg = dptParts != null
-                        ? "new " + simpleDptIdClass + "(" + dptParts[0] + ", " + dptParts[1] + ")"
-                        : "null";
+                String dptArg = dptExpression(
+                        ga.getDatapointType(), simpleDptClass, xlatorPackage, new TreeSet<>());
 
                 sb.append("        public static final KnxDatapoint ")
                   .append(identifier)
@@ -158,7 +288,7 @@ public class JavaSourceGenerator {
                   .append(", ").append(dptArg).append(");\n");
             }
 
-            // ── BY_ADDRESS: GroupAddress → KnxDatapoint, for runtime lookup ───
+            // BY_ADDRESS map: GroupAddress → KnxDatapoint, for runtime lookup
             sb.append("\n        /**\n");
             sb.append("         * Maps every group address in this group to its {@link KnxDatapoint}.\n");
             sb.append("         * Useful for runtime lookup when only the raw address is known.\n");
@@ -170,7 +300,7 @@ public class JavaSourceGenerator {
             sb.append("        static {\n");
             sb.append("            Map<").append(simpleGaClass)
               .append(", KnxDatapoint> m = new LinkedHashMap<>();\n");
-            for (String id : allIdentifiers) {
+            for (String id : identifiers) {
                 sb.append("            m.put(").append(id).append(".address(), ").append(id).append(");\n");
             }
             sb.append("            BY_ADDRESS = Collections.unmodifiableMap(m);\n");
@@ -183,34 +313,73 @@ public class JavaSourceGenerator {
         return sb.toString();
     }
 
+    // ── DPT resolution ────────────────────────────────────────────────────────
+
     /**
-     * Parses an ETS datapoint type string into {@code [mainNumber, subNumber]}.
+     * Returns the Java expression to use for a datapoint type argument in the
+     * generated code.
      *
-     * <p>Supported formats:
      * <ul>
-     *   <li>{@code DPT-1}    → {@code [1, 0]}
-     *   <li>{@code DPST-1-1} → {@code [1, 1]}
+     *   <li>If {@code etsDpt} maps to a known Calimero constant → {@code DPTXlatorFoo.DPT_BAR}
+     *   <li>If {@code etsDpt} is parseable but unknown → {@code new DPT("X.XXX", "", "", "")}
+     *   <li>If {@code etsDpt} is empty/null → {@code null}
      * </ul>
      *
-     * @param dpt ETS datapoint type string, may be empty or null
-     * @return two-element array {@code [main, sub]}, or {@code null} if not parseable
+     * @param etsDpt          raw ETS datapoint type string (e.g. "DPST-9-1" or "DPT-1")
+     * @param simpleDptClass  simple name of the DPT class (e.g. "DPT")
+     * @param xlatorPackage   package prefix for translator classes
+     * @param usedTranslators mutable set that receives the FQN of any translator class used
+     * @return Java expression string, never {@code null}
      */
-    static int[] parseDptId(String dpt) {
-        if (dpt == null || dpt.isEmpty()) return null;
+    static String dptExpression(String etsDpt,
+                                String simpleDptClass,
+                                String xlatorPackage,
+                                TreeSet<String> usedTranslators) {
+        String normalizedId = normalizeDptId(etsDpt);
+        if (normalizedId == null) return "null";
+
+        String[] mapping = DPT_CONSTANT_MAP.get(normalizedId);
+        if (mapping != null) {
+            usedTranslators.add(xlatorPackage + mapping[0]);
+            return mapping[0] + "." + mapping[1];
+        }
+
+        // Fallback: construct a minimal DPT with just the type ID
+        return "new " + simpleDptClass + "(\"" + normalizedId + "\", \"\", \"\", \"\")";
+    }
+
+    /**
+     * Converts an ETS datapoint type string to the normalised Calimero ID format
+     * ({@code "main.sub"} with three-digit zero-padded sub-number).
+     *
+     * <ul>
+     *   <li>{@code "DPST-9-1"}  → {@code "9.001"}
+     *   <li>{@code "DPST-1-1"}  → {@code "1.001"}
+     *   <li>{@code "DPT-9"}     → {@code "9.000"}
+     * </ul>
+     *
+     * @param etsDpt ETS datapoint type string, may be empty or null
+     * @return normalised ID, or {@code null} if not parseable
+     */
+    static String normalizeDptId(String etsDpt) {
+        if (etsDpt == null || etsDpt.isEmpty()) return null;
         try {
-            if (dpt.startsWith("DPST-")) {
-                String[] parts = dpt.substring(5).split("-", 2);
+            if (etsDpt.startsWith("DPST-")) {
+                String[] parts = etsDpt.substring(5).split("-", 2);
                 if (parts.length == 2) {
-                    return new int[]{ Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) };
+                    int main = Integer.parseInt(parts[0]);
+                    int sub  = Integer.parseInt(parts[1]);
+                    return main + "." + String.format("%03d", sub);
                 }
-            } else if (dpt.startsWith("DPT-")) {
-                return new int[]{ Integer.parseInt(dpt.substring(4)), 0 };
+            } else if (etsDpt.startsWith("DPT-")) {
+                int main = Integer.parseInt(etsDpt.substring(4));
+                return main + ".000";
             }
         } catch (NumberFormatException ignored) { }
         return null;
     }
 
-    // ── Name conversion utilities ──────────────────────────────────────────────
+    // ── Name conversion utilities ─────────────────────────────────────────────
 
     /**
      * Converts a human-readable KNX name to a SCREAMING_SNAKE_CASE Java constant identifier.
