@@ -219,14 +219,16 @@ public class JavaSourceGenerator {
 
         // KnxDatapoint record – generated once per class
         sb.append("    /**\n");
-        sb.append("     * Combines a KNX group address with its Calimero datapoint type.\n");
+        sb.append("     * Combines a KNX group address with its name and Calimero datapoint type.\n");
         sb.append("     *\n");
         sb.append("     * @param address the KNX group address\n");
+        sb.append("     * @param name    the group address name as defined in ETS\n");
         sb.append("     * @param dpt     the Calimero {@link DPT} constant, or {@code null} if\n");
         sb.append("     *                no datapoint type was defined in ETS\n");
         sb.append("     */\n");
         sb.append("    public record KnxDatapoint(")
           .append(simpleGaClass).append(" address, ")
+          .append("String name, ")
           .append(simpleDptClass).append(" dpt) {}\n");
 
         // One nested class per Hauptgruppe
@@ -285,6 +287,7 @@ public class JavaSourceGenerator {
                   .append(identifier)
                   .append(" = new KnxDatapoint(new ").append(simpleGaClass)
                   .append("(").append(main).append(", ").append(middle).append(", ").append(sub).append(")")
+                  .append(", \"").append(escapeJavaString(ga.getName())).append("\"")
                   .append(", ").append(dptArg).append(");\n");
             }
 
@@ -451,5 +454,9 @@ public class JavaSourceGenerator {
 
     private static String escapeHtml(String s) {
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    private static String escapeJavaString(String s) {
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }
