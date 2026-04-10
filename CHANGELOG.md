@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-04-10
+
+### Breaking changes
+- **Calimero 3.0-M2** — target package changed from `tuwien.auto.calimero` to `io.calimero`.
+  Default `groupAddressClass` is now `io.calimero.GroupAddress`; the DPT class default follows
+  as `io.calimero.dptxlator.DPT`. Projects still using Calimero 2.x must pin
+  `groupAddressClass` explicitly.
+- **Generated constant type changed** — each group address is now a single `KnxDatapoint`
+  constant (instead of a separate `GroupAddress` constant plus a `KnxDatapoint`). The
+  `BY_ADDRESS` map is built with a static initializer instead of `Map.of(...)`.
+- **DPT constant renames** to match Calimero 3 public API:
+  - `DPTXlator8BitSigned` 6.010: `DPT_VALUE_1_COUNT` → `DPT_VALUE_1_UCOUNT`
+  - `DPTXlator2ByteUnsigned` 7.011: `DPT_LENGTH_MM` → `DPT_LENGTH`
+  - `DptXlator2ByteSigned` 8.001–8.011: all constants renamed to camelCase
+    (`DptValueCount`, `DptDeltaTime`, `DptDeltaTime10`, `DptDeltaTime100`,
+    `DptDeltaTimeSec`, `DptDeltaTimeMin`, `DptDeltaTimeHours`, `DptPercent`, `DptRotationAngle`)
+
+### Added
+- **`warnOnUnmappedDpt` parameter** — logs a warning for each ETS DPT that has no Calimero
+  constant mapping and falls back to `new DPT(...)`. Enabled by default; disable with
+  `<warnOnUnmappedDpt>false</warnOnUnmappedDpt>` or `-Dknxproj.warnOnUnmappedDpt=false`.
+- **Extended DPT constant coverage** — added direct Calimero mappings for main types:
+  - `3` — `DPTXlator3BitControlled` (3.007 Control Dimming)
+  - `13` — `DPTXlator4ByteSigned` (energy, flow rate, delta time; 12 subtypes)
+  - `14` — `DPTXlator4ByteFloat` (physical quantities 14.000–14.1201; 83 subtypes)
+  - `17` — `DPTXlatorSceneNumber` (17.001 Scene Number)
+  - `19` — `DPTXlatorDateTime` (19.001 Date and Time)
+  - `20` — `DPTXlator8BitEnum` (20.102 HVAC Mode)
+
 ## [1.1.1] - 2026-04-04
 
 ### Fixed

@@ -8,7 +8,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Consumer;
 
 /**
  * Generates a Java source file containing {@code KnxDatapoint} constants
@@ -72,6 +74,9 @@ public class JavaSourceGenerator {
         m.put("1.023", new String[]{"DPTXlatorBoolean", "DPT_SHUTTER_BLINDS_MODE"});
         m.put("1.100", new String[]{"DPTXlatorBoolean", "DPT_HEAT_COOL"});
 
+        // ── Main type 3 – 3-bit controlled (DPTXlator3BitControlled) ─────────
+        m.put("3.007", new String[]{"DPTXlator3BitControlled", "DPT_CONTROL_DIMMING"});
+
         // ── Main type 5 – 8-bit unsigned (DPTXlator8BitUnsigned) ──────────────
         m.put("5.001", new String[]{"DPTXlator8BitUnsigned", "DPT_SCALING"});
         m.put("5.003", new String[]{"DPTXlator8BitUnsigned", "DPT_ANGLE"});
@@ -82,7 +87,7 @@ public class JavaSourceGenerator {
 
         // ── Main type 6 – 8-bit signed (DPTXlator8BitSigned) ──────────────────
         m.put("6.001", new String[]{"DPTXlator8BitSigned", "DPT_PERCENT_V8"});
-        m.put("6.010", new String[]{"DPTXlator8BitSigned", "DPT_VALUE_1_COUNT"});
+        m.put("6.010", new String[]{"DPTXlator8BitSigned", "DPT_VALUE_1_UCOUNT"});
         m.put("6.020", new String[]{"DPTXlator8BitSigned", "DPT_STATUS_MODE3"});
 
         // ── Main type 7 – 2-byte unsigned (DPTXlator2ByteUnsigned) ───────────
@@ -94,21 +99,21 @@ public class JavaSourceGenerator {
         m.put("7.006", new String[]{"DPTXlator2ByteUnsigned", "DPT_TIMEPERIOD_MIN"});
         m.put("7.007", new String[]{"DPTXlator2ByteUnsigned", "DPT_TIMEPERIOD_HOURS"});
         m.put("7.010", new String[]{"DPTXlator2ByteUnsigned", "DPT_PROP_DATATYPE"});
-        m.put("7.011", new String[]{"DPTXlator2ByteUnsigned", "DPT_LENGTH_MM"});
+        m.put("7.011", new String[]{"DPTXlator2ByteUnsigned", "DPT_LENGTH"});
         m.put("7.012", new String[]{"DPTXlator2ByteUnsigned", "DPT_ELECTRICAL_CURRENT"});
         m.put("7.013", new String[]{"DPTXlator2ByteUnsigned", "DPT_BRIGHTNESS"});
         m.put("7.600", new String[]{"DPTXlator2ByteUnsigned", "DPT_ABSOLUTE_COLOR_TEMPERATURE"});
 
         // ── Main type 8 – 2-byte signed (DptXlator2ByteSigned) ───────────────
-        m.put("8.001", new String[]{"DptXlator2ByteSigned", "DPT_VALUE_2_COUNT"});
-        m.put("8.002", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIMEMS"});
-        m.put("8.003", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIME10MS"});
-        m.put("8.004", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIME100MS"});
-        m.put("8.005", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIMESEC"});
-        m.put("8.006", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIMEMIN"});
-        m.put("8.007", new String[]{"DptXlator2ByteSigned", "DPT_DELTA_TIMEHRS"});
+        m.put("8.001", new String[]{"DptXlator2ByteSigned", "DptValueCount"});
+        m.put("8.002", new String[]{"DptXlator2ByteSigned", "DptDeltaTime"});
+        m.put("8.003", new String[]{"DptXlator2ByteSigned", "DptDeltaTime10"});
+        m.put("8.004", new String[]{"DptXlator2ByteSigned", "DptDeltaTime100"});
+        m.put("8.005", new String[]{"DptXlator2ByteSigned", "DptDeltaTimeSec"});
+        m.put("8.006", new String[]{"DptXlator2ByteSigned", "DptDeltaTimeMin"});
+        m.put("8.007", new String[]{"DptXlator2ByteSigned", "DptDeltaTimeHours"});
         m.put("8.010", new String[]{"DptXlator2ByteSigned", "DptPercent"});
-        m.put("8.011", new String[]{"DptXlator2ByteSigned", "DPT_ROTATION_ANGLE"});
+        m.put("8.011", new String[]{"DptXlator2ByteSigned", "DptRotationAngle"});
 
         // ── Main type 9 – 2-byte float (DPTXlator2ByteFloat) ─────────────────
         m.put("9.001", new String[]{"DPTXlator2ByteFloat", "DPT_TEMPERATURE"});
@@ -138,9 +143,117 @@ public class JavaSourceGenerator {
         // ── Main type 11 – Date (DPTXlatorDate) ──────────────────────────────
         m.put("11.001", new String[]{"DPTXlatorDate", "DPT_DATE"});
 
+        // ── Main type 13 – 4-byte signed (DPTXlator4ByteSigned) ──────────────
+        m.put("13.001", new String[]{"DPTXlator4ByteSigned", "DPT_COUNT"});
+        m.put("13.002", new String[]{"DPTXlator4ByteSigned", "DPT_FLOWRATE"});
+        m.put("13.010", new String[]{"DPTXlator4ByteSigned", "DPT_ACTIVE_ENERGY"});
+        m.put("13.011", new String[]{"DPTXlator4ByteSigned", "DPT_APPARENT_ENERGY"});
+        m.put("13.012", new String[]{"DPTXlator4ByteSigned", "DPT_REACTIVE_ENERGY"});
+        m.put("13.013", new String[]{"DPTXlator4ByteSigned", "DPT_ACTIVE_ENERGY_KWH"});
+        m.put("13.014", new String[]{"DPTXlator4ByteSigned", "DPT_APPARENT_ENERGY_KVAH"});
+        m.put("13.015", new String[]{"DPTXlator4ByteSigned", "DPT_REACTIVE_ENERGY_KVARH"});
+        m.put("13.016", new String[]{"DPTXlator4ByteSigned", "DptActiveEnergyMWh"});
+        m.put("13.100", new String[]{"DPTXlator4ByteSigned", "DPT_DELTA_TIME"});
+        m.put("13.1200", new String[]{"DPTXlator4ByteSigned", "DPT_DELTA_VOLUME_LIQUID_LITER"});
+        m.put("13.1201", new String[]{"DPTXlator4ByteSigned", "DPT_DELTA_VOLUME_M3"});
+
+        // ── Main type 14 – 4-byte float (DPTXlator4ByteFloat) ────────────────
+        m.put("14.000", new String[]{"DPTXlator4ByteFloat", "DPT_ACCELERATION"});
+        m.put("14.001", new String[]{"DPTXlator4ByteFloat", "DPT_ACCELERATION_ANGULAR"});
+        m.put("14.002", new String[]{"DPTXlator4ByteFloat", "DPT_ACTIVATION_ENERGY"});
+        m.put("14.003", new String[]{"DPTXlator4ByteFloat", "DPT_ACTIVITY"});
+        m.put("14.004", new String[]{"DPTXlator4ByteFloat", "DPT_MOL"});
+        m.put("14.005", new String[]{"DPTXlator4ByteFloat", "DPT_AMPLITUDE"});
+        m.put("14.006", new String[]{"DPTXlator4ByteFloat", "DPT_ANGLE_RAD"});
+        m.put("14.007", new String[]{"DPTXlator4ByteFloat", "DPT_ANGLE_DEG"});
+        m.put("14.008", new String[]{"DPTXlator4ByteFloat", "DPT_ANGULAR_MOMENTUM"});
+        m.put("14.009", new String[]{"DPTXlator4ByteFloat", "DPT_ANGULAR_VELOCITY"});
+        m.put("14.010", new String[]{"DPTXlator4ByteFloat", "DPT_AREA"});
+        m.put("14.011", new String[]{"DPTXlator4ByteFloat", "DPT_CAPACITANCE"});
+        m.put("14.012", new String[]{"DPTXlator4ByteFloat", "DPT_CHARGE_DENSITY_SURFACE"});
+        m.put("14.013", new String[]{"DPTXlator4ByteFloat", "DPT_CHARGE_DENSITY_VOLUME"});
+        m.put("14.014", new String[]{"DPTXlator4ByteFloat", "DPT_COMPRESSIBILITY"});
+        m.put("14.015", new String[]{"DPTXlator4ByteFloat", "DPT_CONDUCTANCE"});
+        m.put("14.016", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRICAL_CONDUCTIVITY"});
+        m.put("14.017", new String[]{"DPTXlator4ByteFloat", "DPT_DENSITY"});
+        m.put("14.018", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRIC_CHARGE"});
+        m.put("14.019", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRIC_CURRENT"});
+        m.put("14.020", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRIC_CURRENTDENSITY"});
+        m.put("14.021", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRIC_DIPOLEMOMENT"});
+        m.put("14.022", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRIC_DISPLACEMENT"});
+        m.put("14.023", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRIC_FIELDSTRENGTH"});
+        m.put("14.024", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRIC_FLUX"});
+        m.put("14.025", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRIC_FLUX_DENSITY"});
+        m.put("14.026", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRIC_POLARIZATION"});
+        m.put("14.027", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRIC_POTENTIAL"});
+        m.put("14.028", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTRIC_POTENTIAL_DIFFERENCE"});
+        m.put("14.029", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTROMAGNETIC_MOMENT"});
+        m.put("14.030", new String[]{"DPTXlator4ByteFloat", "DPT_ELECTROMOTIVE_FORCE"});
+        m.put("14.031", new String[]{"DPTXlator4ByteFloat", "DPT_ENERGY"});
+        m.put("14.032", new String[]{"DPTXlator4ByteFloat", "DPT_FORCE"});
+        m.put("14.033", new String[]{"DPTXlator4ByteFloat", "DPT_FREQUENCY"});
+        m.put("14.034", new String[]{"DPTXlator4ByteFloat", "DPT_ANGULAR_FREQUENCY"});
+        m.put("14.035", new String[]{"DPTXlator4ByteFloat", "DPT_HEAT_CAPACITY"});
+        m.put("14.036", new String[]{"DPTXlator4ByteFloat", "DPT_HEAT_FLOWRATE"});
+        m.put("14.037", new String[]{"DPTXlator4ByteFloat", "DPT_HEAT_QUANTITY"});
+        m.put("14.038", new String[]{"DPTXlator4ByteFloat", "DPT_IMPEDANCE"});
+        m.put("14.039", new String[]{"DPTXlator4ByteFloat", "DPT_LENGTH"});
+        m.put("14.040", new String[]{"DPTXlator4ByteFloat", "DPT_LIGHT_QUANTITY"});
+        m.put("14.041", new String[]{"DPTXlator4ByteFloat", "DPT_LUMINANCE"});
+        m.put("14.042", new String[]{"DPTXlator4ByteFloat", "DPT_LUMINOUS_FLUX"});
+        m.put("14.043", new String[]{"DPTXlator4ByteFloat", "DPT_LUMINOUS_INTENSITY"});
+        m.put("14.044", new String[]{"DPTXlator4ByteFloat", "DPT_MAGNETIC_FIELDSTRENGTH"});
+        m.put("14.045", new String[]{"DPTXlator4ByteFloat", "DPT_MAGNETIC_FLUX"});
+        m.put("14.046", new String[]{"DPTXlator4ByteFloat", "DPT_MAGNETIC_FLUX_DENSITY"});
+        m.put("14.047", new String[]{"DPTXlator4ByteFloat", "DPT_MAGNETIC_MOMENT"});
+        m.put("14.048", new String[]{"DPTXlator4ByteFloat", "DPT_MAGNETIC_POLARIZATION"});
+        m.put("14.049", new String[]{"DPTXlator4ByteFloat", "DPT_MAGNETIZATION"});
+        m.put("14.050", new String[]{"DPTXlator4ByteFloat", "DPT_MAGNETOMOTIVE_FORCE"});
+        m.put("14.051", new String[]{"DPTXlator4ByteFloat", "DPT_MASS"});
+        m.put("14.052", new String[]{"DPTXlator4ByteFloat", "DPT_MASS_FLUX"});
+        m.put("14.053", new String[]{"DPTXlator4ByteFloat", "DPT_MOMENTUM"});
+        m.put("14.054", new String[]{"DPTXlator4ByteFloat", "DPT_PHASE_ANGLE_RAD"});
+        m.put("14.055", new String[]{"DPTXlator4ByteFloat", "DPT_PHASE_ANGLE_DEG"});
+        m.put("14.056", new String[]{"DPTXlator4ByteFloat", "DPT_POWER"});
+        m.put("14.057", new String[]{"DPTXlator4ByteFloat", "DPT_POWER_FACTOR"});
+        m.put("14.058", new String[]{"DPTXlator4ByteFloat", "DPT_PRESSURE"});
+        m.put("14.059", new String[]{"DPTXlator4ByteFloat", "DPT_REACTANCE"});
+        m.put("14.060", new String[]{"DPTXlator4ByteFloat", "DPT_RESISTANCE"});
+        m.put("14.061", new String[]{"DPTXlator4ByteFloat", "DPT_RESISTIVITY"});
+        m.put("14.062", new String[]{"DPTXlator4ByteFloat", "DPT_SELF_INDUCTANCE"});
+        m.put("14.063", new String[]{"DPTXlator4ByteFloat", "DPT_SOLID_ANGLE"});
+        m.put("14.064", new String[]{"DPTXlator4ByteFloat", "DPT_SOUND_INTENSITY"});
+        m.put("14.065", new String[]{"DPTXlator4ByteFloat", "DPT_SPEED"});
+        m.put("14.066", new String[]{"DPTXlator4ByteFloat", "DPT_STRESS"});
+        m.put("14.067", new String[]{"DPTXlator4ByteFloat", "DPT_SURFACE_TENSION"});
+        m.put("14.068", new String[]{"DPTXlator4ByteFloat", "DPT_COMMON_TEMPERATURE"});
+        m.put("14.069", new String[]{"DPTXlator4ByteFloat", "DPT_ABSOLUTE_TEMPERATURE"});
+        m.put("14.070", new String[]{"DPTXlator4ByteFloat", "DPT_TEMPERATURE_DIFFERENCE"});
+        m.put("14.071", new String[]{"DPTXlator4ByteFloat", "DPT_THERMAL_CAPACITY"});
+        m.put("14.072", new String[]{"DPTXlator4ByteFloat", "DPT_THERMAL_CONDUCTIVITY"});
+        m.put("14.073", new String[]{"DPTXlator4ByteFloat", "DPT_THERMOELECTRIC_POWER"});
+        m.put("14.074", new String[]{"DPTXlator4ByteFloat", "DPT_TIME"});
+        m.put("14.075", new String[]{"DPTXlator4ByteFloat", "DPT_TORQUE"});
+        m.put("14.076", new String[]{"DPTXlator4ByteFloat", "DPT_VOLUME"});
+        m.put("14.077", new String[]{"DPTXlator4ByteFloat", "DPT_VOLUME_FLUX"});
+        m.put("14.078", new String[]{"DPTXlator4ByteFloat", "DPT_WEIGHT"});
+        m.put("14.079", new String[]{"DPTXlator4ByteFloat", "DPT_WORK"});
+        m.put("14.080", new String[]{"DPTXlator4ByteFloat", "DPT_APPARENT_POWER"});
+        m.put("14.1200", new String[]{"DPTXlator4ByteFloat", "DPT_VOLUME_FLUX_METER"});
+        m.put("14.1201", new String[]{"DPTXlator4ByteFloat", "DPT_VOLUME_FLUX_LS"});
+
         // ── Main type 16 – String (DPTXlatorString) ──────────────────────────
         m.put("16.000", new String[]{"DPTXlatorString", "DPT_STRING_ASCII"});
         m.put("16.001", new String[]{"DPTXlatorString", "DPT_STRING_8859_1"});
+
+        // ── Main type 17 – Scene number (DPTXlatorSceneNumber) ───────────────
+        m.put("17.001", new String[]{"DPTXlatorSceneNumber", "DPT_SCENE_NUMBER"});
+
+        // ── Main type 19 – Date and time (DPTXlatorDateTime) ─────────────────
+        m.put("19.001", new String[]{"DPTXlatorDateTime", "DPT_DATE_TIME"});
+
+        // ── Main type 20 – 8-bit enum (DPTXlator8BitEnum) ────────────────────
+        m.put("20.102", new String[]{"DPTXlator8BitEnum", "DptHvacMode"});
 
         // ── Main type 232 – RGB (DPTXlatorRGB) ───────────────────────────────
         m.put("232.600", new String[]{"DPTXlatorRGB", "DPT_RGB"});
@@ -160,6 +273,7 @@ public class JavaSourceGenerator {
      * @param dptClass          fully-qualified class name of the DPT type to use
      * @param sourceFile        original .knxproj filename (used in Javadoc)
      * @param generatedAt       timestamp for the generated-at comment
+     * @param warnConsumer      receives one warning message per unmapped DPT ID; never {@code null}
      * @return Java source code as a string
      */
     public String generate(List<GroupAddressEntry> entries,
@@ -168,7 +282,8 @@ public class JavaSourceGenerator {
                            String groupAddressClass,
                            String dptClass,
                            String sourceFile,
-                           LocalDateTime generatedAt) {
+                           LocalDateTime generatedAt,
+                           Consumer<String> warnConsumer) {
 
         String simpleGaClass  = simpleClassName(groupAddressClass);
         String simpleDptClass = simpleClassName(dptClass);
@@ -184,8 +299,21 @@ public class JavaSourceGenerator {
 
         // ── Pass 1: collect translator classes actually needed ─────────────────
         TreeSet<String> xlatorImports = new TreeSet<>();
+        // DPT ID → list of group address names that use the fallback (sorted for stable output)
+        Map<String, List<String>> unmappedDpts = new TreeMap<>();
         for (GroupAddressEntry e : entries) {
             dptExpression(e.getDatapointType(), simpleDptClass, xlatorPackage, xlatorImports);
+            String normalizedId = normalizeDptId(e.getDatapointType());
+            if (normalizedId != null && !DPT_CONSTANT_MAP.containsKey(normalizedId)) {
+                unmappedDpts.computeIfAbsent(normalizedId, k -> new ArrayList<>())
+                            .add(e.getName() + " (" + e.getFormattedAddress() + ")");
+            }
+        }
+        // Emit one warning per unmapped DPT ID, listing the affected group addresses
+        for (Map.Entry<String, List<String>> unmapped : unmappedDpts.entrySet()) {
+            warnConsumer.accept(
+                "No Calimero constant for DPT '" + unmapped.getKey() + "' – "
+                + "using fallback new DPT(...) for: " + unmapped.getValue());
         }
 
         // ── Pass 2: generate source ────────────────────────────────────────────

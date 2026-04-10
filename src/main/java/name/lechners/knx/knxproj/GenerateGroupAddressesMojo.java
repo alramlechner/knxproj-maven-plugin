@@ -17,7 +17,7 @@ import java.util.List;
 
 /**
  * Reads a KNX ETS project file ({@code .knxproj}) and generates a Java source
- * file containing Calimero {@code tuwien.auto.calimero.GroupAddress} constants
+ * file containing Calimero {@code io.calimero.GroupAddress} constants
  * for every group address defined in the project.
  *
  * <p><b>Example usage in a consuming project:</b>
@@ -85,7 +85,7 @@ public class GenerateGroupAddressesMojo extends AbstractMojo {
      */
     @Parameter(
         property     = "knxproj.groupAddressClass",
-        defaultValue = "tuwien.auto.calimero.GroupAddress"
+        defaultValue = "io.calimero.GroupAddress"
     )
     private String groupAddressClass;
 
@@ -94,6 +94,15 @@ public class GenerateGroupAddressesMojo extends AbstractMojo {
      */
     @Parameter(property = "knxproj.skip", defaultValue = "false")
     private boolean skip;
+
+    /**
+     * Whether to log a warning for each ETS datapoint type that has no direct
+     * Calimero constant mapping and therefore falls back to
+     * {@code new DPT("X.XXX", "", "", "")}.
+     * Set to {@code false} to suppress these warnings.
+     */
+    @Parameter(property = "knxproj.warnOnUnmappedDpt", defaultValue = "true")
+    private boolean warnOnUnmappedDpt;
 
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
     private MavenProject project;
@@ -129,7 +138,7 @@ public class GenerateGroupAddressesMojo extends AbstractMojo {
 
         // ── Generate Java source ───────────────────────────────────────────────
         // Derive DPT class from groupAddressClass:
-        // e.g. tuwien.auto.calimero.GroupAddress → tuwien.auto.calimero.dptxlator.DPT
+        // e.g. io.calimero.GroupAddress → io.calimero.dptxlator.DPT
         String dptIdClass = groupAddressClass.replace(".GroupAddress", ".dptxlator.DPT");
 
         String source = new JavaSourceGenerator().generate(
@@ -139,7 +148,8 @@ public class GenerateGroupAddressesMojo extends AbstractMojo {
                 groupAddressClass,
                 dptIdClass,
                 knxprojFile.getName(),
-                LocalDateTime.now());
+                LocalDateTime.now(),
+                warnOnUnmappedDpt ? msg -> getLog().warn(msg) : msg -> {});
 
         // ── Write output file ──────────────────────────────────────────────────
         File targetFile = resolveTargetFile();

@@ -2,16 +2,21 @@
 
 A Maven plugin that generates Java source code from an ETS `.knxproj` file.
 
+> **Calimero version compatibility**
+> | Plugin version | Calimero version |
+> |----------------|-----------------|
+> | 1.x            | 2.x (`tuwien.auto.calimero`) |
+> | 2.x            | 3.x (`io.calimero`) |
+
 For each Hauptgruppe the plugin produces a nested class containing:
-- Strongly-typed `GroupAddress` constants (one per group address)
-- A `KnxDatapoint` record bundling `GroupAddress`, ETS name, and Calimero `DPT` constant
+- Strongly-typed `KnxDatapoint` constants (one per group address), each bundling `GroupAddress`, ETS name, and Calimero `DPT` constant
 - A `BY_ADDRESS` map (`Map<GroupAddress, KnxDatapoint>`) for efficient runtime lookup by received group address
 
 ## Requirements
 
 - Java 17+
 - Maven 3.8+
-- [Calimero Core](https://github.com/calimero-project/calimero-core) 2.6.x as a runtime dependency in the consuming project
+- [Calimero Core](https://github.com/calimero-project/calimero-core) 3.0-M2 or later as a runtime dependency in the consuming project
 
 ## Usage
 
@@ -21,7 +26,7 @@ Add the plugin to your `pom.xml`:
 <plugin>
   <groupId>io.github.alramlechner</groupId>
   <artifactId>knxproj-maven-plugin</artifactId>
-  <version>1.1.1</version>
+  <version>2.0.0</version>
   <executions>
     <execution>
       <goals><goal>generate</goal></goals>
@@ -32,7 +37,7 @@ Add the plugin to your `pom.xml`:
         <!-- Optional -->
         <!-- <className>KNXGroupAddresses</className> -->
         <!-- <outputDirectory>${project.build.directory}/generated-sources/knx</outputDirectory> -->
-        <!-- <groupAddressClass>tuwien.auto.calimero.GroupAddress</groupAddressClass> -->
+        <!-- <groupAddressClass>io.calimero.GroupAddress</groupAddressClass> -->
         <!-- <skip>false</skip> -->
       </configuration>
     </execution>
@@ -46,7 +51,7 @@ Also add the Calimero Core runtime dependency:
 <dependency>
   <groupId>io.calimero</groupId>
   <artifactId>calimero-core</artifactId>
-  <version>2.6.0</version> <!-- use the version you target -->
+  <version>3.0-M2</version>
 </dependency>
 ```
 
@@ -60,8 +65,9 @@ Also add the Calimero Core runtime dependency:
 | `packageName`      | `-Dknxproj.packageName=...`      | –                                                         | **yes**  |
 | `outputDirectory`  | `-Dknxproj.outputDirectory=...`  | `${project.build.directory}/generated-sources/knx`        | no       |
 | `className`        | `-Dknxproj.className=...`        | `KNXGroupAddresses`                                       | no       |
-| `groupAddressClass`| `-Dknxproj.groupAddressClass=...`| `tuwien.auto.calimero.GroupAddress`                       | no       |
+| `groupAddressClass`| `-Dknxproj.groupAddressClass=...`| `io.calimero.GroupAddress`                       | no       |
 | `skip`             | `-Dknxproj.skip=true`            | `false`                                                   | no       |
+| `warnOnUnmappedDpt`| `-Dknxproj.warnOnUnmappedDpt=false`| `true`                                                  | no       |
 
 ## Generated code example
 
@@ -74,18 +80,19 @@ public final class KNXGroupAddresses {
 
     public static final class Licht {  // Hauptgruppe
 
-        public static final GroupAddress WOHNZIMMER_LICHT =
-            new GroupAddress("1/0/1");
-
-        public static final KnxDatapoint WOHNZIMMER_LICHT_DP = new KnxDatapoint(
-            WOHNZIMMER_LICHT,
+        /** Living room light · 1/0/1 · DPST-1-1 */
+        public static final KnxDatapoint WOHNZIMMER_LICHT = new KnxDatapoint(
+            new GroupAddress(1, 0, 1),
             "Living room light",
             DPTXlatorBoolean.DPT_SWITCH
         );
 
-        public static final Map<GroupAddress, KnxDatapoint> BY_ADDRESS = Map.of(
-            WOHNZIMMER_LICHT, WOHNZIMMER_LICHT_DP
-        );
+        public static final Map<GroupAddress, KnxDatapoint> BY_ADDRESS;
+        static {
+            Map<GroupAddress, KnxDatapoint> m = new LinkedHashMap<>();
+            m.put(WOHNZIMMER_LICHT.address(), WOHNZIMMER_LICHT);
+            BY_ADDRESS = Collections.unmodifiableMap(m);
+        }
     }
 }
 ```
@@ -93,7 +100,7 @@ public final class KNXGroupAddresses {
 ## Supported DPT main types
 
 Direct Calimero constant mapping is supported for main types:
-`1`, `5`, `6`, `7`, `8`, `9`, `10`, `11`, `16`, `232`.
+`1`, `3`, `5`, `6`, `7`, `8`, `9`, `10`, `11`, `13`, `14`, `16`, `17`, `19`, `20`, `232`.
 
 For unknown or unmapped DPT IDs the generator falls back to `new DPT("X.XXX", "", "", "")`.
 
