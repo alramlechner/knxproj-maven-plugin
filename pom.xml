@@ -7,17 +7,19 @@
 
     <groupId>io.github.alramlechner</groupId>
     <artifactId>knxproj-maven-plugin</artifactId>
-    <version>2.0.0</version>
+    <version>2.1.0</version>
     <packaging>maven-plugin</packaging>
 
     <name>KNX Project Maven Plugin</name>
     <description>
         Generates Java source code from an ETS .knxproj file.
 
-        For each Hauptgruppe the plugin generates a nested class containing:
-        - strongly-typed GroupAddress constants (one per group address)
-        - a KnxDatapoint record bundling GroupAddress, ETS name, and Calimero DPT constant
-        - a BY_ADDRESS map (Map&lt;GroupAddress, KnxDatapoint&gt;) for efficient runtime lookup
+        The plugin generates two Java classes:
+        1. KnxDatapoint – a class bundling GroupAddress, ETS name, Calimero DPT constant, and translator class reference,
+           plus a method to create new DPTXlator instances via reflection.
+        2. {ClassName} – for each Hauptgruppe contains a nested class with:
+           - strongly-typed KnxDatapoint constants (one per group address)
+           - a BY_ADDRESS map (Map&lt;GroupAddress, KnxDatapoint&gt;) for efficient runtime lookup
 
         Supported DPT main types with direct Calimero constant mapping: 1, 3, 5, 6, 7, 8, 9, 10, 11, 13, 14, 16, 17, 19, 20, 232.
 
@@ -60,8 +62,8 @@
         └──────────────────────┴─────────────────────────────────────────────────────────┴──────────────────────────────────────────┴──────────┘
 
         Runtime dependency of the generated code:
-        The generated class imports io.calimero.GroupAddress and io.calimero.dptxlator.DPT (plus
-        specific DPTXlator* classes for the DPT types used in your project). The consuming project
+        The generated classes import io.calimero.GroupAddress, io.calimero.dptxlator.DPT, and DPTXlator
+        (plus specific DPTXlator* classes for the DPT types used in your project). The consuming project
         must declare a dependency on the Calimero core library:
 
             &lt;dependency&gt;
@@ -75,7 +77,7 @@
             &lt;plugin&gt;
               &lt;groupId&gt;io.github.alramlechner&lt;/groupId&gt;
               &lt;artifactId&gt;knxproj-maven-plugin&lt;/artifactId&gt;
-              &lt;version&gt;2.0.0&lt;/version&gt;
+              &lt;version&gt;2.1.0&lt;/version&gt;
               &lt;executions&gt;
                 &lt;execution&gt;
                   &lt;goals&gt;&lt;goal&gt;generate&lt;/goal&gt;&lt;/goals&gt;

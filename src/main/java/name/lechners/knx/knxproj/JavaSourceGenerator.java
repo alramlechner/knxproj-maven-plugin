@@ -264,7 +264,277 @@ public class JavaSourceGenerator {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Generates the complete Java source file content.
+     * Generates the TranslatorTypes enum source file content.
+     * This enum provides factory methods for all DPTXlator types used in the project.
+     *
+     * @param packageName       Java package of the generated class
+     * @param dptClass          fully-qualified class name of the DPT type to use
+     * @param generatedAt       timestamp for the generated-at comment
+     * @param usedTranslators   set of fully-qualified DPTXlator class names
+     * @return Java source code as a string
+     */
+    public String generateTranslatorTypesEnum(String packageName,
+                                              String dptClass,
+                                              LocalDateTime generatedAt,
+                                              java.util.Set<String> usedTranslators) {
+
+        String simpleDptClass = simpleClassName(dptClass);
+
+        StringBuilder sb = new StringBuilder(4 * 1024);
+
+        // Package & imports
+        sb.append("package ").append(packageName).append(";\n\n");
+        sb.append("import io.calimero.KNXFormatException;\n");
+        sb.append("import ").append(dptClass).append(";\n");
+        sb.append("import io.calimero.dptxlator.DPTXlator;\n");
+        for (String xlatorImport : usedTranslators) {
+            sb.append("import ").append(xlatorImport).append(";\n");
+        }
+        sb.append("\n");
+
+        // Enum Javadoc
+        sb.append("/**\n");
+        sb.append(" * Factory for DPTXlator instances based on DPT type.\n");
+        sb.append(" *\n");
+        sb.append(" * <p>Generated on ").append(generatedAt.format(TIMESTAMP_FMT)).append(".\n");
+        sb.append(" *\n");
+        sb.append(" * <p><b>Do not modify</b> – re-generate via the knxproj-maven-plugin.\n");
+        sb.append(" */\n");
+        sb.append("public enum TranslatorTypes {\n\n");
+
+        // Generate enum constants from used translators
+        java.util.List<String> sortedTranslators = new java.util.ArrayList<>(usedTranslators);
+        java.util.Collections.sort(sortedTranslators);
+
+        for (String xlator : sortedTranslators) {
+            String simpleName = simpleClassName(xlator);
+            String enumName = toEnumConstantName(simpleName);
+            sb.append("    /** {@link ").append(simpleName).append("} */\n");
+            sb.append("    ").append(enumName).append("(").append(simpleName).append(".class)");
+            if (!sortedTranslators.get(sortedTranslators.size() - 1).equals(xlator)) {
+                sb.append(",\n");
+            } else {
+                sb.append(";\n");
+            }
+        }
+
+        sb.append("\n");
+        sb.append("    private final Class<?> xlatorClass;\n\n");
+
+        // Constructor
+        sb.append("    TranslatorTypes(Class<?> xlatorClass) {\n");
+        sb.append("        this.xlatorClass = xlatorClass;\n");
+        sb.append("    }\n\n");
+
+        // forClass method
+        sb.append("    /**\n");
+        sb.append("     * Finds the TranslatorTypes enum constant for the given DPTXlator class.\n");
+        sb.append("     *\n");
+        sb.append("     * @param clazz the DPTXlator class\n");
+        sb.append("     * @return the matching TranslatorTypes constant, or null if not found\n");
+        sb.append("     */\n");
+        sb.append("    public static TranslatorTypes forClass(Class<?> clazz) {\n");
+        sb.append("        for (TranslatorTypes type : values()) {\n");
+        sb.append("            if (type.xlatorClass == clazz) {\n");
+        sb.append("                return type;\n");
+        sb.append("            }\n");
+        sb.append("        }\n");
+        sb.append("        return null;\n");
+        sb.append("    }\n\n");
+
+        // createTranslator method
+        sb.append("    /**\n");
+        sb.append("     * Creates a new DPTXlator instance for the given DPT and initializes it with data.\n");
+        sb.append("     *\n");
+        sb.append("     * @param dpt  the DPT type\n");
+        sb.append("     * @param asdu the ASDU (raw KNX telegram data), or null\n");
+        sb.append("     * @return a new DPTXlator instance initialized with the given data\n");
+        sb.append("     * @throws KNXFormatException if instantiation or data setting fails\n");
+        sb.append("     */\n");
+        sb.append("    public DPTXlator createInstance(").append(simpleDptClass).append(" dpt, byte[] asdu)\n");
+        sb.append("            throws KNXFormatException {\n");
+        sb.append("        try {\n");
+        sb.append("            var constructor = xlatorClass.getConstructor(").append(simpleDptClass).append(".class);\n");
+        sb.append("            var xlator = (DPTXlator) constructor.newInstance(dpt);\n");
+        sb.append("            if (asdu != null && asdu.length > 0) {\n");
+        sb.append("                xlator.setData(asdu);\n");
+        sb.append("            }\n");
+        sb.append("            return xlator;\n");
+        sb.append("        } catch (ReflectiveOperationException e) {\n");
+        sb.append("            throw new KNXFormatException(\n");
+        sb.append("                \"Failed to instantiate \" + xlatorClass.getSimpleName() + \": \" + e.getMessage(), e);\n");
+        sb.append("        }\n");
+        sb.append("    }\n\n");
+
+        // Static factory method
+        sb.append("    /**\n");
+        sb.append("     * Creates a DPTXlator for the given DPT and initializes it with data.\n");
+        sb.append("     * Tries each available translator type until one succeeds.\n");
+        sb.append("     *\n");
+        sb.append("     * @param dpt  the DPT type\n");
+        sb.append("     * @param asdu the ASDU (raw KNX telegram data), or null\n");
+        sb.append("     * @return a new DPTXlator instance\n");
+        sb.append("     * @throws KNXFormatException if no suitable translator is found or instantiation fails\n");
+        sb.append("     */\n");
+        sb.append("    public static DPTXlator createTranslator(").append(simpleDptClass).append(" dpt, byte[] asdu)\n");
+        sb.append("            throws KNXFormatException {\n");
+        sb.append("        if (dpt == null) {\n");
+        sb.append("            throw new KNXFormatException(\"DPT cannot be null\");\n");
+        sb.append("        }\n");
+        sb.append("        // Try each translator type\n");
+        sb.append("        for (TranslatorTypes type : values()) {\n");
+        sb.append("            try {\n");
+        sb.append("                return type.createInstance(dpt, asdu);\n");
+        sb.append("            } catch (KNXFormatException ignored) {\n");
+        sb.append("                // This translator doesn't support this DPT, try next\n");
+        sb.append("            }\n");
+        sb.append("        }\n");
+        sb.append("        throw new KNXFormatException(\"No translator found for DPT \" + dpt.getID());\n");
+        sb.append("    }\n");
+
+        sb.append("}\n");
+        return sb.toString();
+    }
+
+    /**
+     * Generates the KnxDatapoint class source file content with generics.
+     *
+     * @param packageName       Java package of the generated class
+     * @param groupAddressClass fully-qualified class name of the GroupAddress type to use
+     * @param dptClass          fully-qualified class name of the DPT type to use
+     * @param generatedAt       timestamp for the generated-at comment
+     * @return Java source code as a string
+     */
+    public String generateKnxDatapointClass(String packageName,
+                                            String groupAddressClass,
+                                            String dptClass,
+                                            LocalDateTime generatedAt) {
+
+        String simpleGaClass  = simpleClassName(groupAddressClass);
+        String simpleDptClass = simpleClassName(dptClass);
+        String xlatorPackage = dptClass.substring(0, dptClass.lastIndexOf('.') + 1);
+
+        StringBuilder sb = new StringBuilder(8 * 1024);
+
+        // Package & imports
+        sb.append("package ").append(packageName).append(";\n\n");
+        sb.append("import ").append(groupAddressClass).append(";\n");
+        sb.append("import ").append(dptClass).append(";\n");
+        sb.append("import io.calimero.KNXFormatException;\n");
+        sb.append("import io.calimero.dptxlator.DPTXlator;\n\n\n");
+
+        // Class Javadoc
+        sb.append("/**\n");
+        sb.append(" * Combines a KNX group address with its name, Calimero datapoint type, and translator class.\n");
+        sb.append(" * Uses generics to provide type-safe access to the translator class.\n");
+        sb.append(" *\n");
+        sb.append(" * @param <T> the specific DPTXlator subtype for this datapoint\n");
+        sb.append(" *\n");
+        sb.append(" * <p>Generated on ").append(generatedAt.format(TIMESTAMP_FMT)).append(".\n");
+        sb.append(" *\n");
+        sb.append(" * <p><b>Do not modify</b> – re-generate via the knxproj-maven-plugin.\n");
+        sb.append(" */\n");
+        sb.append("public final class KnxDatapoint<T extends DPTXlator> {\n\n");
+
+        // Fields
+        sb.append("    private final ").append(simpleGaClass).append(" address;\n");
+        sb.append("    private final String name;\n");
+        sb.append("    private final ").append(simpleDptClass).append(" dpt;\n");
+        sb.append("    private final Class<T> dptXlatorClass;\n\n");
+
+        // Constructor
+        sb.append("    /**\n");
+        sb.append("     * Creates a new KnxDatapoint instance.\n");
+        sb.append("     *\n");
+        sb.append("     * @param address        the KNX group address\n");
+        sb.append("     * @param name           the group address name as defined in ETS\n");
+        sb.append("     * @param dpt            the Calimero DPT constant, or null if no datapoint type was defined\n");
+        sb.append("     * @param dptXlatorClass the DPTXlator class for this datapoint type, or null\n");
+        sb.append("     */\n");
+        sb.append("    public KnxDatapoint(").append(simpleGaClass).append(" address, String name, ")
+          .append(simpleDptClass).append(" dpt, Class<T> dptXlatorClass) {\n");
+        sb.append("        this.address = address;\n");
+        sb.append("        this.name = name;\n");
+        sb.append("        this.dpt = dpt;\n");
+        sb.append("        this.dptXlatorClass = dptXlatorClass;\n");
+        sb.append("    }\n\n");
+
+        // Accessors
+        sb.append("    public ").append(simpleGaClass).append(" address() {\n");
+        sb.append("        return address;\n");
+        sb.append("    }\n\n");
+
+        sb.append("    public String name() {\n");
+        sb.append("        return name;\n");
+        sb.append("    }\n\n");
+
+        sb.append("    public ").append(simpleDptClass).append(" dpt() {\n");
+        sb.append("        return dpt;\n");
+        sb.append("    }\n\n");
+
+        sb.append("    public Class<T> dptXlatorClass() {\n");
+        sb.append("        return dptXlatorClass;\n");
+        sb.append("    }\n\n");
+
+        // newXlatorInstance() method - without data
+        sb.append("    /**\n");
+        sb.append("     * Creates a new instance of the DPTXlator class for this datapoint type.\n");
+        sb.append("     * The return type is the specific translator type T, no casting required.\n");
+        sb.append("     *\n");
+        sb.append("     * @return a new translator instance initialized with this datapoint's DPT\n");
+        sb.append("     * @throws UnsupportedOperationException if dpt is null (no datapoint type defined)\n");
+        sb.append("     * @throws RuntimeException if translator instantiation fails (wrapped KNXFormatException or reflection error)\n");
+        sb.append("     */\n");
+        sb.append("    public T newXlatorInstance() {\n");
+        sb.append("        return newXlatorInstance(null);\n");
+        sb.append("    }\n\n");
+
+        // newXlatorInstance() method - with ASDU data
+        sb.append("    /**\n");
+        sb.append("     * Creates a new instance of the DPTXlator class and initializes it with ASDU data.\n");
+        sb.append("     * The return type is the specific translator type T, no casting required.\n");
+        sb.append("     *\n");
+        sb.append("     * @param asdu the ASDU (raw KNX telegram data), or null\n");
+        sb.append("     * @return a new translator instance initialized with this datapoint's DPT and data\n");
+        sb.append("     * @throws UnsupportedOperationException if dpt is null (no datapoint type defined)\n");
+        sb.append("     * @throws RuntimeException if translator instantiation fails (wrapped KNXFormatException or reflection error)\n");
+        sb.append("     */\n");
+        sb.append("    public T newXlatorInstance(byte[] asdu) {\n");
+        sb.append("        if (dpt == null) {\n");
+        sb.append("            throw new UnsupportedOperationException(\"No datapoint type defined for \" + name);\n");
+        sb.append("        }\n");
+        sb.append("        if (dptXlatorClass == null) {\n");
+        sb.append("            throw new UnsupportedOperationException(\"No translator class for \" + dpt.getID());\n");
+        sb.append("        }\n");
+        sb.append("        try {\n");
+        sb.append("            var constructor = dptXlatorClass.getConstructor(").append(simpleDptClass).append(".class);\n");
+        sb.append("            var xlator = constructor.newInstance(dpt);\n");
+        sb.append("            if (asdu != null && asdu.length > 0) {\n");
+        sb.append("                xlator.setData(asdu);\n");
+        sb.append("            }\n");
+        sb.append("            return xlator;\n");
+        sb.append("        } catch (ReflectiveOperationException e) {\n");
+        sb.append("            throw new RuntimeException(\n");
+        sb.append("                \"Failed to instantiate \" + dptXlatorClass.getSimpleName() + \": \" + e.getMessage(), e);\n");
+        sb.append("        }\n");
+        sb.append("    }\n\n");
+
+        // toString()
+        sb.append("    @Override\n");
+        sb.append("    public String toString() {\n");
+        sb.append("        return \"KnxDatapoint{\" +\n");
+        sb.append("            \"address=\" + address +\n");
+        sb.append("            \", name='\" + name + '\\'' +\n");
+        sb.append("            \", dpt=\" + (dpt != null ? dpt.getID() : \"null\") +\n");
+        sb.append("            '}';\n");
+        sb.append("    }\n");
+
+        sb.append("}\n");
+        return sb.toString();
+    }
+
+    /**
+     * Generates the complete Java source file content for group addresses.
      *
      * @param entries           parsed group address entries
      * @param packageName       Java package of the generated class
@@ -297,6 +567,10 @@ public class JavaSourceGenerator {
             byHauptgruppe.computeIfAbsent(e.getHauptgruppe(), k -> new ArrayList<>()).add(e);
         }
 
+        // Collect all identifiers for the global BY_ADDRESS map
+        // Key: nested class name, Value: list of identifier names
+        Map<String, List<String>> allIdentifiers = new LinkedHashMap<>();
+
         // ── Pass 1: collect translator classes actually needed ─────────────────
         TreeSet<String> xlatorImports = new TreeSet<>();
         // DPT ID → list of group address names that use the fallback (sorted for stable output)
@@ -322,7 +596,6 @@ public class JavaSourceGenerator {
         // Package & imports
         sb.append("package ").append(packageName).append(";\n\n");
         sb.append("import ").append(groupAddressClass).append(";\n");
-        sb.append("import ").append(dptClass).append(";\n");
         for (String xlatorImport : xlatorImports) {
             sb.append("import ").append(xlatorImport).append(";\n");
         }
@@ -339,25 +612,20 @@ public class JavaSourceGenerator {
         sb.append(" *\n");
         sb.append(" * <p><b>Do not modify</b> – re-generate via the knxproj-maven-plugin.\n");
         sb.append(" *\n");
-        sb.append(" * <p>Total group addresses: ").append(entries.size()).append("\n");
+        sb.append(" * <p>Note: Group addresses without a datapoint type are skipped and not generated.\n");
+        sb.append(" * Total group addresses in source: ").append(entries.size()).append("\n");
         sb.append(" */\n");
         sb.append("@SuppressWarnings(\"unused\")\n");
         sb.append("public final class ").append(className).append(" {\n\n");
         sb.append("    private ").append(className).append("() {}\n\n");
 
-        // KnxDatapoint record – generated once per class
+        // Global BY_ADDRESS map declaration (will be populated below)
         sb.append("    /**\n");
-        sb.append("     * Combines a KNX group address with its name and Calimero datapoint type.\n");
-        sb.append("     *\n");
-        sb.append("     * @param address the KNX group address\n");
-        sb.append("     * @param name    the group address name as defined in ETS\n");
-        sb.append("     * @param dpt     the Calimero {@link DPT} constant, or {@code null} if\n");
-        sb.append("     *                no datapoint type was defined in ETS\n");
+        sb.append("     * Global map of all group addresses to their {@link KnxDatapoint}.\n");
+        sb.append("     * Useful for runtime lookup across all groups when only the raw address is known.\n");
+        sb.append("     * <pre>KnxDatapoint<?> dp = ").append(className).append(".BY_ADDRESS.get(receivedAddress);</pre>\n");
         sb.append("     */\n");
-        sb.append("    public record KnxDatapoint(")
-          .append(simpleGaClass).append(" address, ")
-          .append("String name, ")
-          .append(simpleDptClass).append(" dpt) {}\n");
+        sb.append("    public static final Map<").append(simpleGaClass).append(", KnxDatapoint<?>> BY_ADDRESS;\n");
 
         // One nested class per Hauptgruppe
         for (Map.Entry<String, List<GroupAddressEntry>> groupEntry : byHauptgruppe.entrySet()) {
@@ -379,6 +647,13 @@ public class JavaSourceGenerator {
             String currentMittelgruppe = null;
 
             for (GroupAddressEntry ga : groupAddresses) {
+                // Skip group addresses without a DPT
+                if (ga.getDatapointType().isEmpty()) {
+                    warnConsumer.accept(
+                        "Skipping group address without DPT: " + ga.getName() + " (" + ga.getFormattedAddress() + ")");
+                    continue;
+                }
+
                 String mg = ga.getMittelgruppe();
                 if (!mg.equals(currentMittelgruppe)) {
                     currentMittelgruppe = mg;
@@ -410,35 +685,63 @@ public class JavaSourceGenerator {
 
                 String dptArg = dptExpression(
                         ga.getDatapointType(), simpleDptClass, xlatorPackage, new TreeSet<>());
+                String xlatorClassArg = dptXlatorClassExpression(
+                        ga.getDatapointType(), xlatorPackage);
+                String xlatorSimpleClassName = xlatorClassArg.equals("null") ?
+                    "DPTXlator" :
+                    xlatorClassArg.substring(0, xlatorClassArg.lastIndexOf(".class"));
 
-                sb.append("        public static final KnxDatapoint ")
+                sb.append("        public static final KnxDatapoint<").append(xlatorSimpleClassName).append("> ")
                   .append(identifier)
-                  .append(" = new KnxDatapoint(new ").append(simpleGaClass)
+                  .append(" = new KnxDatapoint<>(new ").append(simpleGaClass)
                   .append("(").append(main).append(", ").append(middle).append(", ").append(sub).append(")")
                   .append(", \"").append(escapeJavaString(ga.getName())).append("\"")
-                  .append(", ").append(dptArg).append(");\n");
+                  .append(", ").append(dptArg)
+                  .append(", ").append(xlatorClassArg).append(");\n");
             }
 
-            // BY_ADDRESS map: GroupAddress → KnxDatapoint, for runtime lookup
+            // BY_ADDRESS map: GroupAddress → KnxDatapoint<?>, for runtime lookup
             sb.append("\n        /**\n");
             sb.append("         * Maps every group address in this group to its {@link KnxDatapoint}.\n");
             sb.append("         * Useful for runtime lookup when only the raw address is known.\n");
-            sb.append("         * <pre>KnxDatapoint dp = ")
+            sb.append("         * <pre>KnxDatapoint<?> dp = ")
               .append(nestedClassName).append(".BY_ADDRESS.get(receivedAddress);</pre>\n");
             sb.append("         */\n");
             sb.append("        public static final Map<").append(simpleGaClass)
-              .append(", KnxDatapoint> BY_ADDRESS;\n");
+              .append(", KnxDatapoint<?>> BY_ADDRESS;\n");
             sb.append("        static {\n");
             sb.append("            Map<").append(simpleGaClass)
-              .append(", KnxDatapoint> m = new LinkedHashMap<>();\n");
+              .append(", KnxDatapoint<?>> m = new LinkedHashMap<>();\n");
             for (String id : identifiers) {
                 sb.append("            m.put(").append(id).append(".address(), ").append(id).append(");\n");
             }
             sb.append("            BY_ADDRESS = Collections.unmodifiableMap(m);\n");
             sb.append("        }\n");
 
+            // Store identifiers for global BY_ADDRESS map
+            allIdentifiers.put(nestedClassName, new ArrayList<>(identifiers));
+
             sb.append("    }\n");
         }
+
+        // Static initializer for global BY_ADDRESS map
+        sb.append("\n    // Global BY_ADDRESS map combining all groups\n");
+        sb.append("    static {\n");
+        sb.append("        Map<").append(simpleGaClass).append(", KnxDatapoint<?>> globalMap = new LinkedHashMap<>();\n");
+
+        // Add all addresses from all Hauptgruppe groups
+        for (Map.Entry<String, List<String>> entry : allIdentifiers.entrySet()) {
+            String nestedClassName = entry.getKey();
+            List<String> identifierList = entry.getValue();
+
+            for (String id : identifierList) {
+                sb.append("        globalMap.put(").append(nestedClassName).append(".").append(id)
+                  .append(".address(), ").append(nestedClassName).append(".").append(id).append(");\n");
+            }
+        }
+
+        sb.append("        BY_ADDRESS = Collections.unmodifiableMap(globalMap);\n");
+        sb.append("    }\n");
 
         sb.append("}\n");
         return sb.toString();
@@ -477,6 +780,48 @@ public class JavaSourceGenerator {
 
         // Fallback: construct a minimal DPT with just the type ID
         return "new " + simpleDptClass + "(\"" + normalizedId + "\", \"\", \"\", \"\")";
+    }
+
+    /**
+     * Returns the Java expression for the DPTXlator class reference argument.
+     *
+     * <ul>
+     *   <li>If {@code etsDpt} maps to a known Calimero DPT → {@code DPTXlatorFoo.class}
+     *   <li>If {@code etsDpt} is empty/null or unmapped → {@code null}
+     * </ul>
+     *
+     * @param etsDpt        raw ETS datapoint type string (e.g. "DPST-9-1" or "DPT-1")
+     * @param xlatorPackage package prefix for translator classes (unused but kept for clarity)
+     * @return Java class expression string, never {@code null}
+     */
+    static String dptXlatorClassExpression(String etsDpt, String xlatorPackage) {
+        String normalizedId = normalizeDptId(etsDpt);
+        if (normalizedId == null) return "null";
+
+        String[] mapping = DPT_CONSTANT_MAP.get(normalizedId);
+        if (mapping != null) {
+            return mapping[0] + ".class";
+        }
+
+        return "null";
+    }
+
+    /**
+     * Public accessor for DPT constant map (used by Mojo for collecting translator classes).
+     * @param normalizedId the normalized DPT ID
+     * @return the mapping array [xlatorClassName, constantName], or null if not found
+     */
+    public String[] getDptMapping(String normalizedId) {
+        return DPT_CONSTANT_MAP.get(normalizedId);
+    }
+
+    /**
+     * Public accessor for normalizeDptId (used by Mojo).
+     * @param etsDpt ETS datapoint type string
+     * @return normalized ID, or null if not parseable
+     */
+    public String getNormalizedDptId(String etsDpt) {
+        return normalizeDptId(etsDpt);
     }
 
     /**
@@ -578,6 +923,22 @@ public class JavaSourceGenerator {
     private static String simpleClassName(String fqcn) {
         int idx = fqcn.lastIndexOf('.');
         return idx >= 0 ? fqcn.substring(idx + 1) : fqcn;
+    }
+
+    /**
+     * Converts a class name to an enum constant name.
+     * Examples: "DPTXlatorBoolean" → "DPT_BOOLEAN", "DptXlator2ByteSigned" → "DPT_2BYTE_SIGNED"
+     */
+    private static String toEnumConstantName(String className) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < className.length(); i++) {
+            char c = className.charAt(i);
+            if (i > 0 && Character.isUpperCase(c) && !Character.isUpperCase(className.charAt(i - 1))) {
+                sb.append('_');
+            }
+            sb.append(Character.toUpperCase(c));
+        }
+        return sb.toString();
     }
 
     private static String escapeHtml(String s) {

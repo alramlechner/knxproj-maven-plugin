@@ -141,22 +141,82 @@ public class GenerateGroupAddressesMojo extends AbstractMojo {
         // e.g. io.calimero.GroupAddress → io.calimero.dptxlator.DPT
         String dptIdClass = groupAddressClass.replace(".GroupAddress", ".dptxlator.DPT");
 
-        String source = new JavaSourceGenerator().generate(
+        JavaSourceGenerator generator = new JavaSourceGenerator();
+        LocalDateTime now = LocalDateTime.now();
+
+        // Collect used translator classes
+        java.util.Set<String> usedTranslators = new java.util.TreeSet<>();
+        for (GroupAddressEntry e : entries) {
+            String normalizedId = generator.getNormalizedDptId(e.getDatapointType());
+            if (normalizedId != null) {
+                String[] mapping = generator.getDptMapping(normalizedId);
+                if (mapping != null) {
+                    String xlatorPackage = dptIdClass.substring(0, dptIdClass.lastIndexOf('.') + 1);
+                    usedTranslators.add(xlatorPackage + mapping[0]);
+                }
+            }
+        }
+
+        // Generate KnxDatapoint class
+        String knxDatapointSource = generator.generateKnxDatapointClass(
+                packageName,
+                groupAddressClass,
+                dptIdClass,
+                now);
+
+        // Generate TranslatorTypes enum
+        String translatorTypesSource = usedTranslators.isEmpty() ? "" :
+            generator.generateTranslatorTypesEnum(
+                packageName,
+                dptIdClass,
+                now,
+                usedTranslators);
+
+        // Generate group addresses class
+        String groupAddressesSource = generator.generate(
                 entries,
                 packageName,
                 className,
                 groupAddressClass,
                 dptIdClass,
                 knxprojFile.getName(),
-                LocalDateTime.now(),
+                now,
                 warnOnUnmappedDpt ? msg -> getLog().warn(msg) : msg -> {});
 
-        // ── Write output file ──────────────────────────────────────────────────
-        File targetFile = resolveTargetFile();
+        // ── Write KnxDatapoint file ────────────────────────────────────────────
+        File knxDatapointFile = resolveTargetFile("KnxDatapoint");
+        knxDatapointFile.getParentFile().mkdirs();
+
+        try (PrintWriter pw = new PrintWriter(knxDatapointFile, StandardCharsets.UTF_8)) {
+            pw.print(knxDatapointSource);
+        } catch (IOException e) {
+            throw new MojoExecutionException(
+                    "Failed to write generated source: " + knxDatapointFile.getAbsolutePath(), e);
+        }
+
+        getLog().info("Generated: " + knxDatapointFile.getAbsolutePath());
+
+        // ── Write TranslatorTypes file ─────────────────────────────────────────
+        if (!translatorTypesSource.isEmpty()) {
+            File translatorTypesFile = resolveTargetFile("TranslatorTypes");
+            translatorTypesFile.getParentFile().mkdirs();
+
+            try (PrintWriter pw = new PrintWriter(translatorTypesFile, StandardCharsets.UTF_8)) {
+                pw.print(translatorTypesSource);
+            } catch (IOException e) {
+                throw new MojoExecutionException(
+                        "Failed to write generated source: " + translatorTypesFile.getAbsolutePath(), e);
+            }
+
+            getLog().info("Generated: " + translatorTypesFile.getAbsolutePath());
+        }
+
+        // ── Write group addresses file ─────────────────────────────────────────
+        File targetFile = resolveTargetFile(className);
         targetFile.getParentFile().mkdirs();
 
         try (PrintWriter pw = new PrintWriter(targetFile, StandardCharsets.UTF_8)) {
-            pw.print(source);
+            pw.print(groupAddressesSource);
         } catch (IOException e) {
             throw new MojoExecutionException(
                     "Failed to write generated source: " + targetFile.getAbsolutePath(), e);
@@ -170,8 +230,12 @@ public class GenerateGroupAddressesMojo extends AbstractMojo {
     }
 
     private File resolveTargetFile() {
+        return resolveTargetFile(className);
+    }
+
+    private File resolveTargetFile(String simpleClassName) {
         // Convert package name to directory path: com.example.knx → com/example/knx
         String packagePath = packageName.replace('.', File.separatorChar);
-        return new File(outputDirectory, packagePath + File.separator + className + ".java");
+        return new File(outputDirectory, packagePath + File.separator + simpleClassName + ".java");
     }
 }

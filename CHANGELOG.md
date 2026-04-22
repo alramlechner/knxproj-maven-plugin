@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-04-21
+
+### Changed
+- **Group addresses without DPT are now skipped** — Group addresses that have no datapoint type defined in ETS
+  are no longer generated as `KnxDatapoint` constants. A warning is logged for each skipped address.
+  This is by design since `KnxDatapoint` requires a DPT for translator instantiation.
+- **newXlatorInstance() throws only unchecked exceptions** — The `newXlatorInstance()` and 
+  `newXlatorInstance(byte[] asdu)` methods no longer declare `throws KNXFormatException`. Instead, any failures
+  (reflection errors, invalid DPT) are wrapped in `RuntimeException`. This reduces boilerplate error handling
+  since these are typically programmer errors, not recoverable runtime conditions.
+
+### Added
+
+### Added
+- **Global BY_ADDRESS map** — A class-level `KnxDatapoint<?>[] BY_ADDRESS` map that combines all group addresses
+  from all Hauptgruppen for convenient runtime lookup across groups:
+  ```java
+  KnxDatapoint<?> dp = KNXGroupAddresses.BY_ADDRESS.get(receivedAddress);
+  ```
+  In addition, each Hauptgruppe still has its own `BY_ADDRESS` map for group-specific lookups.
+- **KnxDatapoint with generics** — `KnxDatapoint<T extends DPTXlator>` is now a generic class that captures the specific
+  translator type at compile time. This enables **type-safe access without casting**:
+  ```java
+  var dp = KNXGroupAddresses.Licht.WOHNZIMMER_LICHT;  // KnxDatapoint<DPTXlatorBoolean>
+  DPTXlatorBoolean xlator = dp.newXlatorInstance();   // No cast required!
+  ```
+- **DPTXlator instantiation methods** — `KnxDatapoint<T>` includes overloaded `newXlatorInstance()` methods with
+  return type T:
+  - `T newXlatorInstance()` — creates a new translator with just the DPT
+  - `T newXlatorInstance(byte[] asdu)` — creates a translator and immediately sets ASDU data
+  Both methods use reflection to invoke the translator's DPT-parameter constructor.
+- **TranslatorTypes enum** — A new generated enum (`TranslatorTypes.java`) provides factory methods for creating
+  DPTXlator instances when the exact type is not known at compile time:
+  - `createInstance(DPT dpt, byte[] asdu)` — instance method per enum constant
+  - `createTranslator(DPT dpt, byte[] asdu)` — static convenience method that tries all available translators
+- **Type-safe BY_ADDRESS map** — The BY_ADDRESS map is now typed as `Map<GroupAddress, KnxDatapoint<?>>`, allowing
+  type-safe retrieval with wildcard generics.
+
 ## [2.0.0] - 2026-04-10
 
 ### Breaking changes
