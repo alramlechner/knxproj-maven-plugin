@@ -1,3 +1,4 @@
 target/
 /micromy-git-credentials
 .claude/settings.local.json
+.idea/
