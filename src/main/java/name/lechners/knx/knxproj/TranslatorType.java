@@ -4,8 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Mapping zwischen DPTXlator-Klassen und deren Klassennamen.
- * Wird verwendet, um den Enum-Namen aus dem Klassennamen zu ermitteln.
+ * Utility class that maps DPTXlator class names to their corresponding enum constant names.
+ * Used during code generation to convert translator class names to enum constants.
  */
 public final class TranslatorType {
 
@@ -31,11 +31,11 @@ public final class TranslatorType {
     }
 
     /**
-     * Konvertiert einen DPTXlator-Klassennamen zu einem Enum-Namen.
-     * Beispiel: "DPTXlatorBoolean" → "DPT_BOOLEAN"
+     * Converts a DPTXlator class name to its corresponding enum constant name.
+     * Example: "DPTXlatorBoolean" → "DPT_BOOLEAN"
      *
-     * @param className der einfache Klassenname
-     * @return der entsprechende Enum-Name, oder null wenn nicht mappiert
+     * @param className the simple class name
+     * @return the corresponding enum constant name, or null if not mapped
      */
     public static String getEnumName(String className) {
         return CLASS_NAME_TO_ENUM_NAME.get(className);
